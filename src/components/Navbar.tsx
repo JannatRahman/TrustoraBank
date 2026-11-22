@@ -2,7 +2,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Link } from "@heroui/react";
+import { Button, Link } from "@heroui/react";
+import { useSession } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
+
 
 const navLinks = [
   { name: "Home", href: "/" },
@@ -16,6 +20,22 @@ const navLinks = [
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const {data:session , isPending } = useSession();
+  const user = session?.user;
+  const router = useRouter();
+  const handleSignOut = async () => {
+  await authClient.signOut({
+    fetchOptions: {
+      onSuccess: () => {
+        router.push("/");
+      },
+    },
+  });
+};
+
+const [currentYear, setCurrentYear] = useState<number | null>(null);
+
+
 
   // Detect scroll position
   useEffect(() => {
@@ -45,6 +65,7 @@ function Navbar() {
 
   return (
     <>
+      {/* NAVBAR */}
       <nav
         className={`sticky top-0 z-50 w-full border-b transition-all duration-300 ${
           isScrolled
@@ -85,6 +106,7 @@ function Navbar() {
               <span className="text-lg font-bold tracking-tight text-blue-950">
                 Trustora
               </span>
+
               <span className="text-[10px] font-semibold uppercase tracking-[3px] text-gray-500">
                 Bank
               </span>
@@ -105,19 +127,27 @@ function Navbar() {
             ))}
           </ul>
 
-          {/* RIGHT: DESKTOP ACTION BUTTONS + MOBILE MENU */}
+          {/* RIGHT: ACTION BUTTONS */}
           <div className="flex items-center justify-end gap-3">
 
+            {/* DESKTOP BUTTONS */}
             <div className="hidden items-center gap-3 lg:flex">
-              <Link
+              {
+                user ? <>
+                Welcome, {user.name}
+                <Button onClick={handleSignOut} className="rounded-lg bg-blue-950 px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-blue-900 no-underline">Signout</Button>
+                </> :
+                <Link
                 href="/login"
                 className="rounded-lg px-4 py-2.5 text-sm font-semibold text-blue-950 transition-colors hover:bg-blue-50 no-underline"
               >
                 Login
               </Link>
+              }
+              
 
               <Link
-                href="/open-account"
+                href="/register"
                 className="rounded-lg bg-blue-950 px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-blue-900 no-underline"
               >
                 Open an Account
@@ -238,7 +268,7 @@ function Navbar() {
             </Link>
 
             <Link
-              href="/open-account"
+              href="/register"
               onClick={closeMenu}
               className="flex justify-center rounded-lg bg-blue-950 px-5 py-3 font-semibold text-white no-underline"
             >
@@ -248,11 +278,7 @@ function Navbar() {
         </div>
 
         {/* DRAWER FOOTER */}
-        <div className="border-t border-gray-100 px-6 py-5">
-          <p className="text-center text-xs text-gray-400">
-            © {new Date().getFullYear()} Trustora Bank. All rights reserved.
-          </p>
-        </div>
+        
       </aside>
     </>
   );
