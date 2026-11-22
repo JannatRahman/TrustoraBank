@@ -2,11 +2,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Link } from "@heroui/react";
-import { useSession } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
-
+import NextLink from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useSession, authClient } from "@/lib/auth-client";
 
 const navLinks = [
   { name: "Home", href: "/" },
@@ -20,35 +18,44 @@ const navLinks = [
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const {data:session , isPending } = useSession();
+
+  const { data: session, isPending } = useSession();
   const user = session?.user;
+
   const router = useRouter();
-  const handleSignOut = async () => {
-  await authClient.signOut({
-    fetchOptions: {
-      onSuccess: () => {
-        router.push("/");
-      },
-    },
-  });
-};
+  const pathname = usePathname();
 
-const [currentYear, setCurrentYear] = useState<number | null>(null);
+  // Determine the dashboard based on the authenticated user's role.
+  const dashboardHref =
+    user?.role === "admin"
+      ? "/dashboard/admin"
+      : user?.role === "banking-staff"
+        ? "/dashboard/bankStaff"
+        : user?.role === "customer"
+          ? "/dashboard/customer"
+          : null;
 
+  // Close mobile menu after navigating.
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [pathname]);
 
-
-  // Detect scroll position
+  // Detect scroll position.
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
 
-    window.addEventListener("scroll", handleScroll);
+    handleScroll();
 
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
-  // Close mobile menu when pressing Escape
+  // Close mobile menu with Escape.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -58,10 +65,25 @@ const [currentYear, setCurrentYear] = useState<number | null>(null);
 
     window.addEventListener("keydown", handleKeyDown);
 
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   const closeMenu = () => setIsMenuOpen(false);
+
+  const handleSignOut = async () => {
+    closeMenu();
+
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          router.push("/");
+          router.refresh();
+        },
+      },
+    });
+  };
 
   return (
     <>
@@ -70,17 +92,16 @@ const [currentYear, setCurrentYear] = useState<number | null>(null);
         className={`sticky top-0 z-50 w-full border-b transition-all duration-300 ${
           isScrolled
             ? "border-gray-200 bg-white/95 shadow-md backdrop-blur-xl"
-            : "border-transparent bg-white"
+            : "border-gray-100 bg-white"
         }`}
       >
         <div className="mx-auto grid h-20 max-w-7xl grid-cols-[1fr_auto] items-center px-5 lg:grid-cols-[1fr_auto_1fr] lg:px-8">
-
-          {/* LEFT: LOGO AND BANK NAME */}
-          <Link
+          {/* LOGO */}
+          <NextLink
             href="/"
-            className="flex items-center gap-3 text-gray-900 no-underline"
+            className="flex w-fit items-center gap-3 no-underline"
           >
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-950 text-white">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#112D4E] text-white">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="27"
@@ -103,62 +124,99 @@ const [currentYear, setCurrentYear] = useState<number | null>(null);
             </div>
 
             <div className="flex flex-col">
-              <span className="text-lg font-bold tracking-tight text-blue-950">
+              <span className="text-lg font-bold leading-tight tracking-tight text-[#112D4E]">
                 Trustora
               </span>
 
-              <span className="text-[10px] font-semibold uppercase tracking-[3px] text-gray-500">
+              <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-[3px] text-gray-500">
                 Bank
               </span>
             </div>
-          </Link>
+          </NextLink>
 
-          {/* CENTER: DESKTOP NAVIGATION */}
-          <ul className="hidden items-center gap-7 lg:flex">
-            {navLinks.map((link) => (
-              <li key={link.name}>
-                <Link
-                  href={link.href}
-                  className="text-sm font-medium text-gray-600 transition-colors hover:text-blue-950 no-underline"
-                >
-                  {link.name}
-                </Link>
-              </li>
-            ))}
+          {/* DESKTOP NAVIGATION */}
+          <ul className="hidden items-center gap-6 lg:flex xl:gap-8">
+            {navLinks.map((link) => {
+              const isActive =
+                link.href === "/"
+                  ? pathname === "/"
+                  : pathname === link.href ||
+                    pathname.startsWith(`${link.href}/`);
+
+              return (
+                <li key={link.name}>
+                  <NextLink
+                    href={link.href}
+                    className={`relative whitespace-nowrap py-2 text-sm font-medium no-underline transition-colors ${
+                      isActive
+                        ? "text-[#112D4E]"
+                        : "text-gray-600 hover:text-[#112D4E]"
+                    }`}
+                  >
+                    {link.name}
+
+                    {isActive && (
+                      <span className="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-[#3F72AF]" />
+                    )}
+                  </NextLink>
+                </li>
+              );
+            })}
           </ul>
 
-          {/* RIGHT: ACTION BUTTONS */}
+          {/* RIGHT ACTIONS */}
           <div className="flex items-center justify-end gap-3">
+            {/* DESKTOP AUTH ACTIONS */}
+            <div className="hidden items-center justify-end gap-3 lg:flex">
+              {isPending ? (
+                <div className="h-10 w-28 animate-pulse rounded-lg bg-gray-100" />
+              ) : user ? (
+                <>
+                  <span className="max-w-36 truncate text-sm font-medium text-[#112D4E]">
+                    Welcome, {user.name || "User"}
+                  </span>
 
-            {/* DESKTOP BUTTONS */}
-            <div className="hidden items-center gap-3 lg:flex">
-              {
-                user ? <>
-                Welcome, {user.name}
-                <Button onClick={handleSignOut} className="rounded-lg bg-blue-950 px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-blue-900 no-underline">Signout</Button>
-                </> :
-                <Link
-                href="/login"
-                className="rounded-lg px-4 py-2.5 text-sm font-semibold text-blue-950 transition-colors hover:bg-blue-50 no-underline"
-              >
-                Login
-              </Link>
-              }
-              
+                  {dashboardHref && (
+                    <NextLink
+                      href={dashboardHref}
+                      className="rounded-lg border border-[#112D4E] px-4 py-2.5 text-sm font-semibold text-[#112D4E] no-underline transition-colors hover:bg-blue-50"
+                    >
+                      Dashboard
+                    </NextLink>
+                  )}
 
-              <Link
-                href="/register"
-                className="rounded-lg bg-blue-950 px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-blue-900 no-underline"
-              >
-                Open an Account
-              </Link>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="rounded-lg bg-[#112D4E] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1D4168]"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <NextLink
+                    href="/login"
+                    className="rounded-lg px-4 py-2.5 text-sm font-semibold text-[#112D4E] no-underline transition-colors hover:bg-blue-50"
+                  >
+                    Login
+                  </NextLink>
+
+                  <NextLink
+                    href="/register"
+                    className="whitespace-nowrap rounded-lg bg-[#112D4E] px-5 py-3 text-sm font-semibold text-white no-underline transition-colors hover:bg-[#1D4168]"
+                  >
+                    Open an Account
+                  </NextLink>
+                </>
+              )}
             </div>
 
-            {/* MOBILE HAMBURGER */}
+            {/* MOBILE MENU BUTTON */}
             <button
               type="button"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="flex h-11 w-11 items-center justify-center rounded-lg border border-gray-200 text-blue-950 transition-colors hover:bg-gray-100 lg:hidden"
+              onClick={() => setIsMenuOpen((previous) => !previous)}
+              className="flex h-11 w-11 items-center justify-center rounded-lg border border-gray-200 text-[#112D4E] transition-colors hover:bg-gray-100 lg:hidden"
               aria-label={isMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={isMenuOpen}
               aria-controls="mobile-menu"
@@ -183,17 +241,19 @@ const [currentYear, setCurrentYear] = useState<number | null>(null);
       </nav>
 
       {/* MOBILE BACKDROP */}
-      <div
+      <button
+        type="button"
         onClick={closeMenu}
+        tabIndex={isMenuOpen ? 0 : -1}
+        aria-label="Close navigation menu"
         className={`fixed inset-0 z-[60] bg-black/40 transition-opacity duration-300 lg:hidden ${
           isMenuOpen
             ? "visible opacity-100"
-            : "invisible opacity-0"
+            : "invisible pointer-events-none opacity-0"
         }`}
-        aria-hidden="true"
       />
 
-      {/* MOBILE SLIDE-IN DRAWER */}
+      {/* MOBILE DRAWER */}
       <aside
         id="mobile-menu"
         className={`fixed right-0 top-0 z-[70] flex h-dvh w-[85%] max-w-sm flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
@@ -204,21 +264,25 @@ const [currentYear, setCurrentYear] = useState<number | null>(null);
         inert={!isMenuOpen}
       >
         {/* DRAWER HEADER */}
-        <div className="flex h-20 items-center justify-between border-b border-gray-100 px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-950 text-white">
+        <div className="flex h-20 shrink-0 items-center justify-between border-b border-gray-100 px-6">
+          <NextLink
+            href="/"
+            onClick={closeMenu}
+            className="flex items-center gap-3 no-underline"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#112D4E] text-white">
               <span className="text-lg font-bold">T</span>
             </div>
 
-            <span className="text-lg font-bold text-blue-950">
+            <span className="text-lg font-bold text-[#112D4E]">
               Trustora Bank
             </span>
-          </div>
+          </NextLink>
 
           <button
             type="button"
             onClick={closeMenu}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100"
             aria-label="Close menu"
           >
             <svg
@@ -227,58 +291,105 @@ const [currentYear, setCurrentYear] = useState<number | null>(null);
               stroke="currentColor"
               viewBox="0 0 24 24"
               strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 18 18 6M6 6l12 12"
-              />
+              <path d="M6 18 18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* DRAWER NAVIGATION */}
+        {/* DRAWER CONTENT */}
         <div className="flex-1 overflow-y-auto px-6 py-8">
           <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-gray-400">
             Navigation
           </p>
 
           <ul className="flex flex-col gap-2">
-            {navLinks.map((link) => (
-              <li key={link.name}>
-                <Link
-                  href={link.href}
-                  onClick={closeMenu}
-                  className="block rounded-lg px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-blue-50 hover:text-blue-950 no-underline"
-                >
-                  {link.name}
-                </Link>
-              </li>
-            ))}
+            {navLinks.map((link) => {
+              const isActive =
+                link.href === "/"
+                  ? pathname === "/"
+                  : pathname === link.href ||
+                    pathname.startsWith(`${link.href}/`);
+
+              return (
+                <li key={link.name}>
+                  <NextLink
+                    href={link.href}
+                    onClick={closeMenu}
+                    className={`block rounded-lg px-4 py-3 text-sm font-medium no-underline transition-colors ${
+                      isActive
+                        ? "bg-blue-50 text-[#112D4E]"
+                        : "text-gray-700 hover:bg-blue-50 hover:text-[#112D4E]"
+                    }`}
+                  >
+                    {link.name}
+                  </NextLink>
+                </li>
+              );
+            })}
           </ul>
 
-          {/* DRAWER ACTIONS */}
+          {/* MOBILE AUTH ACTIONS */}
           <div className="mt-10 flex flex-col gap-3 border-t border-gray-100 pt-8">
-            <Link
-              href="/login"
-              onClick={closeMenu}
-              className="flex justify-center rounded-lg border border-blue-950 px-5 py-3 font-semibold text-blue-950 no-underline"
-            >
-              Login
-            </Link>
+            {isPending ? (
+              <div className="h-12 w-full animate-pulse rounded-lg bg-gray-100" />
+            ) : user ? (
+              <>
+                <div className="rounded-lg bg-gray-50 px-4 py-3">
+                  <p className="text-xs text-gray-500">Signed in as</p>
+                  <p className="mt-1 truncate text-sm font-semibold text-[#112D4E]">
+                    {user.name || "User"}
+                  </p>
+                </div>
 
-            <Link
-              href="/register"
-              onClick={closeMenu}
-              className="flex justify-center rounded-lg bg-blue-950 px-5 py-3 font-semibold text-white no-underline"
-            >
-              Open an Account
-            </Link>
+                {dashboardHref && (
+                  <NextLink
+                    href={dashboardHref}
+                    onClick={closeMenu}
+                    className="flex justify-center rounded-lg border border-[#112D4E] px-5 py-3 text-sm font-semibold text-[#112D4E] no-underline transition-colors hover:bg-blue-50"
+                  >
+                    Dashboard
+                  </NextLink>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="w-full rounded-lg bg-[#112D4E] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#1D4168]"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <NextLink
+                  href="/login"
+                  onClick={closeMenu}
+                  className="flex justify-center rounded-lg border border-[#112D4E] px-5 py-3 text-sm font-semibold text-[#112D4E] no-underline transition-colors hover:bg-blue-50"
+                >
+                  Login
+                </NextLink>
+
+                <NextLink
+                  href="/register"
+                  onClick={closeMenu}
+                  className="flex justify-center rounded-lg bg-[#112D4E] px-5 py-3 text-sm font-semibold text-white no-underline transition-colors hover:bg-[#1D4168]"
+                >
+                  Open an Account
+                </NextLink>
+              </>
+            )}
           </div>
         </div>
 
         {/* DRAWER FOOTER */}
-        
+        <div className="border-t border-gray-100 px-6 py-4">
+          <p className="text-center text-xs text-gray-400">
+            © {new Date().getFullYear()} Trustora Bank
+          </p>
+        </div>
       </aside>
     </>
   );
