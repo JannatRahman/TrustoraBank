@@ -7,8 +7,8 @@ const client = new MongoClient(process.env.MONGODB_URI as string);
 const db = client.db(process.env.AUTHDB_NAME as string);
 
 export const auth = betterAuth({
-  emailAndPassword: { 
-    enabled: true, 
+  emailAndPassword: {
+    enabled: true,
     minPasswordLength: 8
   },
   socialProviders: {
@@ -20,4 +20,14 @@ export const auth = betterAuth({
   database: mongodbAdapter(db, {
     client,
   }),
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        required: false,
+        defaultValue: "customer",
+        input: false,
+      },
+    },
+  },
 });

@@ -4,6 +4,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Link } from "@heroui/react";
+
 import {
   Envelope,
   Lock,
@@ -33,6 +34,7 @@ export default function LoginPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // EMAIL SIGN IN
+
   const handleEmailSignIn = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -45,7 +47,6 @@ export default function LoginPage() {
         email: email.trim(),
         password,
         rememberMe,
-        callbackURL: "/",
       });
 
       if (error) {
@@ -54,13 +55,49 @@ export default function LoginPage() {
         );
         return;
       }
+     
+
+      // Retrieve the latest authenticated session
+      const { data: sessionData, error: sessionError } =
+        await authClient.getSession();
+
+      if (sessionError || !sessionData?.user) {
+        setErrorMessage("Unable to retrieve your account information. Please try again.");
+        return;
+      }
+
+      const role = sessionData.user.role;
+
+      let dashboardPath: string;
+
+      switch (role) {
+        case "admin":
+          dashboardPath = "/dashboard/admin";
+          break;
+
+        case "banking-staff":
+          dashboardPath = "/dashboard/banking-staff";
+          break;
+
+        case "customer":
+          dashboardPath = "/dashboard/customer";
+          break;
+
+        default:
+          setErrorMessage(
+            "Your account does not have a valid role. Please contact the administrator."
+          );
+          return;
+      }
 
       setSuccessMessage(
         "Login successful! Redirecting to your Trustora Bank dashboard..."
       );
-setTimeout(() => {
-        router.push("/");
+
+      setTimeout(() => {
+        router.push(dashboardPath);
       }, 1000);
+
     } catch {
       setErrorMessage(
         "An unexpected network error occurred. Please try again."
@@ -69,6 +106,8 @@ setTimeout(() => {
       setIsLoading(false);
     }
   };
+
+
 
   // GOOGLE SIGN IN
   const handleGoogleSignIn = async () => {

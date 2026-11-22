@@ -30,6 +30,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -127,7 +128,7 @@ export default function RegisterPage() {
           <div className="mx-auto w-full max-w-md lg:col-span-6">
             <div className="overflow-hidden rounded-3xl border border-[#DBE2EF] bg-white shadow-xl">
               {/* TOP TABS: SIGN IN / SIGN UP */}
-            
+
 
               {/* CARD BODY */}
               <div className="p-6 sm:p-8">
@@ -340,6 +341,7 @@ export default function RegisterPage() {
                     )}
                   </div>
 
+                  
                   {/* SUBMIT BUTTON */}
                   <button
                     type="submit"
