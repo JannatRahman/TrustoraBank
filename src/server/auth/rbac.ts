@@ -9,6 +9,9 @@ export interface AuthContext {
 
 /**
  * Validates that the current request has an active, valid Better Auth session.
+ * Enforces live database user status:
+ * - BLOCKED customers receive HTTP 403 Forbidden.
+ * - DEACTIVATED customers receive HTTP 403 Forbidden.
  * Throws UnauthorizedError (401) if not logged in.
  */
 export async function requireAuth(): Promise<AuthContext> {
@@ -16,6 +19,20 @@ export async function requireAuth(): Promise<AuthContext> {
 
   if (!session || !session.user) {
     throw new UnauthorizedError("Authentication required. Please sign in to continue.");
+  }
+
+  // Enforce customer account status check on all protected routes
+  if (session.user.role === "customer" && session.user.status) {
+    if (session.user.status === "BLOCKED") {
+      throw new ForbiddenError(
+        "Your account has been blocked by administration for security reasons. Please contact customer support."
+      );
+    }
+    if (session.user.status === "DEACTIVATED") {
+      throw new ForbiddenError(
+        "Your account has been deactivated. Please contact customer support to reactivate your account."
+      );
+    }
   }
 
   return session;

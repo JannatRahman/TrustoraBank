@@ -1,12 +1,14 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import type { UserRole } from "@/types";
+import { getDatabase } from "@/lib/mongodb";
+import { COLLECTIONS, type UserRole, type CustomerStatus, type DbUser } from "@/types";
 
 export interface AuthenticatedUser {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  status?: CustomerStatus;
   image?: string | null;
 }
 
@@ -23,7 +25,8 @@ export interface ServerSession {
 }
 
 /**
- * Retrieves the current Better Auth session from the incoming server request headers.
+ * Retrieves the current Better Auth session from incoming server request headers.
+ * Validates the user's live database record to ensure real-time role and status enforcement.
  * Returns null if the user is unauthenticated.
  */
 export async function getServerSession(): Promise<ServerSession | null> {
@@ -37,18 +40,27 @@ export async function getServerSession(): Promise<ServerSession | null> {
       return null;
     }
 
-    const role = (session.user as { role?: string }).role;
+    // Query live database status to ensure BLOCKED/DEACTIVATED status is enforced immediately
+    const db = await getDatabase();
+    const dbUser = await db
+      .collection<DbUser>(COLLECTIONS.USER)
+      .findOne({ email: session.user.email.toLowerCase() });
+
+    const rawRole = dbUser?.role || (session.user as { role?: string }).role;
     const validatedRole: UserRole =
-      role === "admin" || role === "banking-staff" || role === "customer"
-        ? (role as UserRole)
+      rawRole === "admin" || rawRole === "banking-staff" || rawRole === "customer"
+        ? (rawRole as UserRole)
         : "customer";
+
+    const userStatus: CustomerStatus = dbUser?.status || "ACTIVE";
 
     return {
       user: {
         id: session.user.id,
-        name: session.user.name,
+        name: dbUser?.name || session.user.name,
         email: session.user.email,
         role: validatedRole,
+        status: userStatus,
         image: session.user.image,
       },
       session: {

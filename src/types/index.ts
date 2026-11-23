@@ -23,6 +23,9 @@ export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
 
 // User & Auth
 export type UserRole = "admin" | "banking-staff" | "customer";
+export type CustomerStatus = "ACTIVE" | "DEACTIVATED" | "BLOCKED";
+export type KycStatus = "PENDING" | "VERIFIED" | "REJECTED";
+export type KycDocumentType = "NATIONAL_ID" | "PASSPORT" | "DRIVING_LICENSE";
 
 export interface DbUser {
   _id?: string;
@@ -31,6 +34,17 @@ export interface DbUser {
   email: string;
   emailVerified?: boolean;
   role: UserRole;
+  status?: CustomerStatus;
+  statusReason?: string;
+  statusUpdatedBy?: string;
+  statusUpdatedAt?: string | Date;
+  kycStatus?: KycStatus;
+  kycDocumentType?: KycDocumentType;
+  kycDocumentNumber?: string;
+  kycSubmittedAt?: string | Date;
+  kycReviewedBy?: string;
+  kycReviewedAt?: string | Date;
+  kycRejectionReason?: string;
   image?: string | null;
   phone?: string;
   address?: string;
@@ -85,10 +99,21 @@ export interface DbTransaction {
   description: string;
   initiatedBy: string; // User/Staff/Admin email
   processedBy?: string;
+  requestId?: string;
   loanId?: string;
+  installmentNo?: number;
   senderBalanceAfter?: number;
   receiverBalanceAfter?: number;
   idempotencyKey?: string;
+  flagged?: boolean;
+  flagReason?: string;
+  flaggedBy?: string;
+  flaggedAt?: string | Date;
+  riskLevel?: "LOW" | "MEDIUM" | "HIGH";
+  reviewStatus?: "PENDING_REVIEW" | "REVIEWED" | "CLEARED" | "ESCALATED" | "REVERSED";
+  reviewedBy?: string;
+  reviewedAt?: string | Date;
+  internalNotes?: string;
   reversedAt?: string | Date;
   reversedBy?: string;
   reversalReason?: string;
@@ -109,7 +134,15 @@ export type LoanStatus =
   | "UNDER_REVIEW"
   | "FORWARDED_TO_ADMIN"
   | "APPROVED"
+  | "ACTIVE"
+  | "COMPLETED"
   | "REJECTED";
+
+export interface LoanStaffNote {
+  staff: string;
+  note: string;
+  createdAt: string | Date;
+}
 
 export interface DbLoan {
   _id?: string;
@@ -126,13 +159,18 @@ export interface DbLoan {
   employmentStatus: string;
   description: string;
   status: LoanStatus;
-  staffNotes?: Array<{
-    author: string;
-    note: string;
-    date: string | Date;
-  }>;
+  staffNotes?: LoanStaffNote[];
+  forwardedBy?: string;
+  forwardedAt?: string | Date;
+  reviewedBy?: string;
+  reviewedAt?: string | Date;
   approvedBy?: string;
   approvedAt?: string | Date;
+  disbursedAt?: string | Date;
+  disbursementTransaction?: string;
+  paidInstallments?: number;
+  remainingBalance?: number;
+  nextDueDate?: string | Date;
   rejectedBy?: string;
   rejectedAt?: string | Date;
   rejectionReason?: string;
@@ -178,6 +216,7 @@ export interface DbRequest {
   requestedAt: string | Date;
   reviewedBy?: string;
   reviewedAt?: string | Date;
+  rejectionReason?: string;
   transaction?: string;
   createdAt: string | Date;
   updatedAt: string | Date;

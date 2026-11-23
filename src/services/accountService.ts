@@ -2,6 +2,7 @@ import { getDatabase } from "@/lib/mongodb";
 import { COLLECTIONS, type DbBankAccount, type AccountType, type AccountStatus, type UserRole } from "@/types";
 import { NotFoundError, ForbiddenError, BadRequestError } from "@/server/auth/errors";
 import { validateAmount } from "@/validators/accountValidator";
+import { escapeRegex } from "@/validators/regexHelper";
 
 export interface AccountQueryOptions {
   owner?: string;
@@ -57,7 +58,8 @@ export class AccountService {
     }
 
     if (options.search) {
-      const searchRegex = new RegExp(options.search.trim(), "i");
+      const sanitized = escapeRegex(options.search.trim());
+      const searchRegex = new RegExp(sanitized, "i");
       filter.$or = [
         { accountNumber: searchRegex },
         { owner: searchRegex },

@@ -274,6 +274,21 @@ export class TransactionService {
           );
         }
       });
+    } catch (err: unknown) {
+      // Gracefully handle concurrent duplicate key race conditions on idempotencyKey
+      if (
+        idempotencyKey &&
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: number }).code === 11000
+      ) {
+        const existingTx = await transactionsCol.findOne({ idempotencyKey });
+        if (existingTx && existingTx.status === "COMPLETED") {
+          return existingTx;
+        }
+      }
+      throw err;
     } finally {
       await session.endSession();
     }
