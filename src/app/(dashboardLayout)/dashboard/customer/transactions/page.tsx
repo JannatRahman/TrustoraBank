@@ -28,7 +28,7 @@ type TransactionType =
   | "Transfer"
   | "Loan Repayment";
 
-type TransactionStatus = "Completed" | "Pending" | "Failed";
+type TransactionStatus = "Completed" | "Pending" | "Failed" | "Rejected";
 
 type Transaction = {
   id: string;
@@ -896,6 +896,7 @@ function StatusBadge({ status }: { status: TransactionStatus }) {
     Completed: "bg-emerald-50 text-emerald-700",
     Pending: "bg-amber-50 text-amber-700",
     Failed: "bg-red-50 text-red-700",
+    Rejected: "bg-red-50 text-red-700",
   };
 
   return (

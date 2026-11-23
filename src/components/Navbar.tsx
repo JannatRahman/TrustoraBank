@@ -4,20 +4,36 @@
 import { useEffect, useState } from "react";
 import NextLink from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import {
+  Menu,
+  X,
+  LayoutDashboard,
+  LogOut,
+  Landmark,
+} from "lucide-react";
 import { useSession, authClient } from "@/lib/auth-client";
 
 const navLinks = [
-  { name: "Home", href: "/" },
-  { name: "Services", href: "/services" },
-  { name: "Loans", href: "/loans" },
-  { name: "Security", href: "/security" },
-  { name: "About", href: "/about" },
-  { name: "Contact", href: "/contact" },
+  { name: "Home", href: "/", id: "home" },
+  { name: "Services", href: "/#services", id: "services" },
+  { name: "Loans", href: "/#loans", id: "loans" },
+  { name: "Security", href: "/#security", id: "security" },
+  { name: "About", href: "/#about", id: "about" },
+  { name: "Contact", href: "/#contact", id: "contact" },
+];
+
+const sectionIds = [
+  "about",
+  "services",
+  "loans",
+  "security",
+  "contact",
 ];
 
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState("home");
 
   const { data: session, isPending } = useSession();
   const user = session?.user;
@@ -25,7 +41,7 @@ function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Determine the dashboard based on the authenticated user's role.
+  // Role-based dashboard destination
   const dashboardHref =
     user?.role === "admin"
       ? "/dashboard/admin"
@@ -35,27 +51,119 @@ function Navbar() {
           ? "/dashboard/customer"
           : null;
 
-  // Close mobile menu after navigating.
+  // Close mobile menu after route navigation
   useEffect(() => {
     setIsMenuOpen(false);
   }, [pathname]);
 
-  // Detect scroll position.
+  // Track navbar scroll appearance
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      setIsScrolled(window.scrollY > 15);
     };
 
     handleScroll();
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("scroll", handleScroll, {
+      passive: true,
+    });
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
 
-  // Close mobile menu with Escape.
+  // Detect the currently visible homepage section
+  useEffect(() => {
+    if (pathname !== "/") {
+      return;
+    }
+
+    const updateActiveSection = () => {
+      const scrollPosition = window.scrollY;
+      const activationPoint = 150;
+
+      // Home is active near the top of the homepage
+      if (scrollPosition < 120) {
+        setActiveSection("home");
+        return;
+      }
+
+      // Keep Contact active at the bottom of the page
+      const isAtBottom =
+        window.innerHeight + scrollPosition >=
+        document.documentElement.scrollHeight - 5;
+
+      if (isAtBottom && document.getElementById("contact")) {
+        setActiveSection("contact");
+        return;
+      }
+
+      const visibleSections = sectionIds
+        .map((id) => {
+          const element = document.getElementById(id);
+
+          if (!element) return null;
+
+          const rect = element.getBoundingClientRect();
+
+          return {
+            id,
+            top: rect.top,
+            bottom: rect.bottom,
+          };
+        })
+        .filter(
+          (
+            section,
+          ): section is {
+            id: string;
+            top: number;
+            bottom: number;
+          } => section !== null,
+        );
+
+      // Find the section currently crossing the activation point
+      const currentSection = visibleSections.find(
+        (section) =>
+          section.top <= activationPoint &&
+          section.bottom > activationPoint,
+      );
+
+      if (currentSection) {
+        setActiveSection(currentSection.id);
+        return;
+      }
+
+      // If between sections, select the nearest upcoming section
+      const upcomingSections = visibleSections.filter(
+        (section) => section.top > activationPoint,
+      );
+
+      if (upcomingSections.length > 0) {
+        const nearestSection = upcomingSections.reduce((closest, section) =>
+          section.top < closest.top ? section : closest,
+        );
+
+        setActiveSection(nearestSection.id);
+      }
+    };
+
+    updateActiveSection();
+
+    window.addEventListener("scroll", updateActiveSection, {
+      passive: true,
+    });
+
+    window.addEventListener("resize", updateActiveSection);
+
+    return () => {
+      window.removeEventListener("scroll", updateActiveSection);
+      window.removeEventListener("resize", updateActiveSection);
+    };
+  }, [pathname]);
+
+  // Escape key closes mobile menu
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -72,6 +180,7 @@ function Navbar() {
 
   const closeMenu = () => setIsMenuOpen(false);
 
+  // Sign out
   const handleSignOut = async () => {
     closeMenu();
 
@@ -85,160 +194,127 @@ function Navbar() {
     });
   };
 
+  // Active navigation link
+  const isActiveLink = (id: string) => {
+    return pathname === "/" && activeSection === id;
+  };
+
   return (
     <>
       {/* NAVBAR */}
-      <nav
-        className={`sticky top-0 z-50 w-full border-b transition-all duration-300 ${
-          isScrolled
-            ? "border-gray-200 bg-white/95 shadow-md backdrop-blur-xl"
+      <header
+        className={`sticky top-0 z-50 w-full border-b transition-all duration-300 ${isScrolled
+            ? "border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-xl"
             : "border-gray-100 bg-white"
-        }`}
+          }`}
       >
-        <div className="mx-auto grid h-20 max-w-7xl grid-cols-[1fr_auto] items-center px-5 lg:grid-cols-[1fr_auto_1fr] lg:px-8">
+        <nav
+          className="mx-auto flex h-[76px] max-w-[1440px] items-center justify-between gap-6 px-5 sm:px-8 xl:px-10"
+          aria-label="Main navigation"
+        >
           {/* LOGO */}
           <NextLink
             href="/"
-            className="flex w-fit items-center gap-3 no-underline"
+            className="flex shrink-0 items-center gap-3 no-underline"
           >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#112D4E] text-white">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="27"
-                height="27"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M3 10h18" />
-                <path d="M5 10v9" />
-                <path d="M9 10v9" />
-                <path d="M15 10v9" />
-                <path d="M19 10v9" />
-                <path d="M2 19h20" />
-                <path d="M12 3 2 8h20L12 3Z" />
-              </svg>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#112D4E] text-white shadow-sm">
+              <Landmark size={22} strokeWidth={1.8} />
             </div>
 
             <div className="flex flex-col">
-              <span className="text-lg font-bold leading-tight tracking-tight text-[#112D4E]">
+              <span className="text-[19px] font-bold leading-tight tracking-tight text-[#112D4E]">
                 Trustora
               </span>
 
-              <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-[3px] text-gray-500">
+              <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-[3px] text-gray-500">
                 Bank
               </span>
             </div>
           </NextLink>
 
           {/* DESKTOP NAVIGATION */}
-          <ul className="hidden items-center gap-6 lg:flex xl:gap-8">
+          <ul className="hidden items-center gap-2 xl:flex">
             {navLinks.map((link) => {
-              const isActive =
-                link.href === "/"
-                  ? pathname === "/"
-                  : pathname === link.href ||
-                    pathname.startsWith(`${link.href}/`);
+              const isActive = isActiveLink(link.id);
 
               return (
                 <li key={link.name}>
                   <NextLink
                     href={link.href}
-                    className={`relative whitespace-nowrap py-2 text-sm font-medium no-underline transition-colors ${
-                      isActive
-                        ? "text-[#112D4E]"
-                        : "text-gray-600 hover:text-[#112D4E]"
-                    }`}
+                    aria-current={isActive ? "location" : undefined}
+                    className={`group relative flex items-center px-3 py-3 text-[13px] font-semibold no-underline transition-colors duration-300 after:absolute after:bottom-1 after:left-3 after:right-3 after:h-[2px] after:origin-center after:rounded-full after:bg-[#3F72AF] after:transition-transform after:duration-300 after:content-[''] ${isActive
+                        ? "text-[#172554] after:scale-x-100"
+                        : "text-gray-500 after:scale-x-0 hover:text-[#172554] hover:after:scale-x-100"
+                      }`}
                   >
                     {link.name}
-
-                    {isActive && (
-                      <span className="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-[#3F72AF]" />
-                    )}
                   </NextLink>
                 </li>
               );
             })}
           </ul>
 
-          {/* RIGHT ACTIONS */}
-          <div className="flex items-center justify-end gap-3">
-            {/* DESKTOP AUTH ACTIONS */}
-            <div className="hidden items-center justify-end gap-3 lg:flex">
-              {isPending ? (
-                <div className="h-10 w-28 animate-pulse rounded-lg bg-gray-100" />
-              ) : user ? (
-                <>
-                  <span className="max-w-36 truncate text-sm font-medium text-[#112D4E]">
-                    Welcome, {user.name || "User"}
-                  </span>
+          {/* DESKTOP AUTH ACTIONS */}
+          <div className="hidden shrink-0 items-center gap-3 xl:flex">
+            {isPending ? (
+              <div className="h-9 w-36 animate-pulse rounded-full bg-gray-100" />
+            ) : user ? (
+              <>
+                <span className="hidden max-w-32 truncate text-sm font-medium text-gray-600 2xl:block">
+                  Welcome, {user.name || "User"}
+                </span>
 
-                  {dashboardHref && (
-                    <NextLink
-                      href={dashboardHref}
-                      className="rounded-lg border border-[#112D4E] px-4 py-2.5 text-sm font-semibold text-[#112D4E] no-underline transition-colors hover:bg-blue-50"
-                    >
-                      Dashboard
-                    </NextLink>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    className="rounded-lg bg-[#112D4E] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1D4168]"
-                  >
-                    Sign Out
-                  </button>
-                </>
-              ) : (
-                <>
+                {dashboardHref && (
                   <NextLink
-                    href="/login"
-                    className="rounded-lg px-4 py-2.5 text-sm font-semibold text-[#112D4E] no-underline transition-colors hover:bg-blue-50"
+                    href={dashboardHref}
+                    className="flex items-center gap-2 rounded-full border border-[#DBE2EF] px-4 py-2.5 text-[13px] font-semibold text-[#112D4E] no-underline transition-all hover:border-[#3F72AF] hover:bg-[#DBE2EF]/40"
                   >
-                    Login
+                    <LayoutDashboard size={16} />
+                    Dashboard
                   </NextLink>
-
-                  <NextLink
-                    href="/register"
-                    className="whitespace-nowrap rounded-lg bg-[#112D4E] px-5 py-3 text-sm font-semibold text-white no-underline transition-colors hover:bg-[#1D4168]"
-                  >
-                    Open an Account
-                  </NextLink>
-                </>
-              )}
-            </div>
-
-            {/* MOBILE MENU BUTTON */}
-            <button
-              type="button"
-              onClick={() => setIsMenuOpen((previous) => !previous)}
-              className="flex h-11 w-11 items-center justify-center rounded-lg border border-gray-200 text-[#112D4E] transition-colors hover:bg-gray-100 lg:hidden"
-              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-              aria-expanded={isMenuOpen}
-              aria-controls="mobile-menu"
-            >
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                strokeLinecap="round"
-              >
-                {isMenuOpen ? (
-                  <path d="M6 6l12 12M18 6 6 18" />
-                ) : (
-                  <path d="M4 6h16M4 12h16M4 18h16" />
                 )}
-              </svg>
-            </button>
+
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="flex cursor-pointer items-center gap-2 rounded-full bg-[#112D4E] px-4 py-2.5 text-[13px] font-semibold text-white transition-all hover:bg-[#1D4168]"
+                >
+                  <LogOut size={15} />
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <NextLink
+                  href="/login"
+                  className="rounded-full px-4 py-2.5 text-[13px] font-semibold text-[#112D4E] no-underline transition-colors hover:bg-gray-100"
+                >
+                  Login
+                </NextLink>
+
+                <NextLink
+                  href="/register"
+                  className="rounded-full bg-[#112D4E] px-5 py-2.5 text-[13px] font-semibold text-white no-underline shadow-sm transition-all hover:bg-[#1D4168] hover:shadow-md"
+                >
+                  Open an Account
+                </NextLink>
+              </>
+            )}
           </div>
-        </div>
-      </nav>
+
+          {/* MOBILE / TABLET MENU BUTTON */}
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen((previous) => !previous)}
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-gray-200 text-[#112D4E] transition-colors hover:bg-gray-50 xl:hidden"
+            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMenuOpen}
+            aria-controls="mobile-menu"
+          >
+            {isMenuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </nav>
+      </header>
 
       {/* MOBILE BACKDROP */}
       <button
@@ -246,83 +322,73 @@ function Navbar() {
         onClick={closeMenu}
         tabIndex={isMenuOpen ? 0 : -1}
         aria-label="Close navigation menu"
-        className={`fixed inset-0 z-[60] bg-black/40 transition-opacity duration-300 lg:hidden ${
-          isMenuOpen
+        className={`fixed inset-0 z-[60] cursor-pointer bg-[#112D4E]/35 backdrop-blur-[2px] transition-opacity duration-300 xl:hidden ${isMenuOpen
             ? "visible opacity-100"
             : "invisible pointer-events-none opacity-0"
-        }`}
+          }`}
       />
 
-      {/* MOBILE DRAWER */}
+      {/* MOBILE / TABLET DRAWER */}
       <aside
         id="mobile-menu"
-        className={`fixed right-0 top-0 z-[70] flex h-dvh w-[85%] max-w-sm flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
-          isMenuOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed right-0 top-0 z-[70] flex h-dvh w-[88%] max-w-[390px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out xl:hidden ${isMenuOpen ? "translate-x-0" : "translate-x-full"
+          }`}
         aria-label="Mobile navigation"
         aria-hidden={!isMenuOpen}
         inert={!isMenuOpen}
       >
         {/* DRAWER HEADER */}
-        <div className="flex h-20 shrink-0 items-center justify-between border-b border-gray-100 px-6">
+        <div className="flex h-[76px] shrink-0 items-center justify-between border-b border-gray-100 px-6">
           <NextLink
             href="/"
             onClick={closeMenu}
             className="flex items-center gap-3 no-underline"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#112D4E] text-white">
-              <span className="text-lg font-bold">T</span>
+              <Landmark size={21} />
             </div>
 
-            <span className="text-lg font-bold text-[#112D4E]">
-              Trustora Bank
-            </span>
+            <div>
+              <p className="text-base font-bold text-[#112D4E]">
+                Trustora Bank
+              </p>
+              <p className="text-[9px] font-semibold tracking-[2px] text-gray-500">
+                BANKING WITH CONFIDENCE
+              </p>
+            </div>
           </NextLink>
 
           <button
             type="button"
             onClick={closeMenu}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#112D4E]"
             aria-label="Close menu"
           >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M6 18 18 6M6 6l12 12" />
-            </svg>
+            <X size={22} />
           </button>
         </div>
 
         {/* DRAWER CONTENT */}
         <div className="flex-1 overflow-y-auto px-6 py-8">
-          <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-gray-400">
-            Navigation
+          <p className="mb-4 px-3 text-[10px] font-bold uppercase tracking-[2px] text-gray-400">
+            Explore Trustora
           </p>
 
-          <ul className="flex flex-col gap-2">
+          {/* NAVIGATION LINKS */}
+          <ul className="flex flex-col gap-1.5">
             {navLinks.map((link) => {
-              const isActive =
-                link.href === "/"
-                  ? pathname === "/"
-                  : pathname === link.href ||
-                    pathname.startsWith(`${link.href}/`);
+              const isActive = isActiveLink(link.id);
 
               return (
                 <li key={link.name}>
                   <NextLink
                     href={link.href}
                     onClick={closeMenu}
-                    className={`block rounded-lg px-4 py-3 text-sm font-medium no-underline transition-colors ${
-                      isActive
-                        ? "bg-blue-50 text-[#112D4E]"
-                        : "text-gray-700 hover:bg-blue-50 hover:text-[#112D4E]"
-                    }`}
+                    aria-current={isActive ? "location" : undefined}
+                    className={`flex items-center rounded-xl border-l-[3px] px-4 py-3.5 text-sm font-semibold no-underline transition-all duration-200 ${isActive
+                        ? "border-[#3F72AF] bg-[#DBE2EF]/50 text-[#172554]"
+                        : "border-transparent text-gray-600 hover:bg-gray-50 hover:text-[#112D4E]"
+                      }`}
                   >
                     {link.name}
                   </NextLink>
@@ -331,15 +397,18 @@ function Navbar() {
             })}
           </ul>
 
-          {/* MOBILE AUTH ACTIONS */}
-          <div className="mt-10 flex flex-col gap-3 border-t border-gray-100 pt-8">
+          {/* AUTHENTICATION ACTIONS */}
+          <div className="mt-8 border-t border-gray-100 pt-7">
             {isPending ? (
-              <div className="h-12 w-full animate-pulse rounded-lg bg-gray-100" />
+              <div className="h-12 w-full animate-pulse rounded-xl bg-gray-100" />
             ) : user ? (
-              <>
-                <div className="rounded-lg bg-gray-50 px-4 py-3">
-                  <p className="text-xs text-gray-500">Signed in as</p>
-                  <p className="mt-1 truncate text-sm font-semibold text-[#112D4E]">
+              <div className="flex flex-col gap-3">
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    Signed in as
+                  </p>
+
+                  <p className="mt-1 truncate text-sm font-bold text-[#112D4E]">
                     {user.name || "User"}
                   </p>
                 </div>
@@ -348,26 +417,28 @@ function Navbar() {
                   <NextLink
                     href={dashboardHref}
                     onClick={closeMenu}
-                    className="flex justify-center rounded-lg border border-[#112D4E] px-5 py-3 text-sm font-semibold text-[#112D4E] no-underline transition-colors hover:bg-blue-50"
+                    className="flex items-center justify-center gap-2 rounded-xl border border-[#DBE2EF] px-5 py-3.5 text-sm font-semibold text-[#112D4E] no-underline transition-colors hover:bg-[#DBE2EF]/40"
                   >
-                    Dashboard
+                    <LayoutDashboard size={17} />
+                    Go to Dashboard
                   </NextLink>
                 )}
 
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="w-full rounded-lg bg-[#112D4E] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#1D4168]"
+                  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#112D4E] px-5 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#1D4168]"
                 >
+                  <LogOut size={17} />
                   Sign Out
                 </button>
-              </>
+              </div>
             ) : (
-              <>
+              <div className="flex flex-col gap-3">
                 <NextLink
                   href="/login"
                   onClick={closeMenu}
-                  className="flex justify-center rounded-lg border border-[#112D4E] px-5 py-3 text-sm font-semibold text-[#112D4E] no-underline transition-colors hover:bg-blue-50"
+                  className="flex justify-center rounded-xl border border-[#DBE2EF] px-5 py-3.5 text-sm font-semibold text-[#112D4E] no-underline transition-colors hover:bg-gray-50"
                 >
                   Login
                 </NextLink>
@@ -375,19 +446,19 @@ function Navbar() {
                 <NextLink
                   href="/register"
                   onClick={closeMenu}
-                  className="flex justify-center rounded-lg bg-[#112D4E] px-5 py-3 text-sm font-semibold text-white no-underline transition-colors hover:bg-[#1D4168]"
+                  className="flex justify-center rounded-xl bg-[#112D4E] px-5 py-3.5 text-sm font-semibold text-white no-underline transition-colors hover:bg-[#1D4168]"
                 >
                   Open an Account
                 </NextLink>
-              </>
+              </div>
             )}
           </div>
         </div>
 
         {/* DRAWER FOOTER */}
-        <div className="border-t border-gray-100 px-6 py-4">
+        <div className="border-t border-gray-100 px-6 py-5">
           <p className="text-center text-xs text-gray-400">
-            © {new Date().getFullYear()} Trustora Bank
+            © 2026 Trustora Bank
           </p>
         </div>
       </aside>

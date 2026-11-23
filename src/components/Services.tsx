@@ -1,15 +1,21 @@
+
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { Link } from "@heroui/react";
 import {
   ArrowRight,
   ShieldCheck,
- 
+  CircleCheck,
 } from "@gravity-ui/icons";
-import { Briefcase, CircleCheck, CreditCard, PiggyBank, TrendingUp } from "lucide-react";
+import {
+  Briefcase,
+  CreditCard,
+  PiggyBank,
+} from "lucide-react";
 
-type BillingCycle = "personal" | "business";
+type AccountSegment = "personal" | "business";
 
 interface AccountTier {
   id: string;
@@ -20,8 +26,7 @@ interface AccountTier {
   rateValue: string;
   minBalance: string;
   highlighted?: boolean;
-  cardBg: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   features: string[];
   ctaLabel: string;
   ctaHref: string;
@@ -31,263 +36,407 @@ const accountTypes: AccountTier[] = [
   {
     id: "savings",
     name: "Savings Account",
-    badge: "Everyday Growth",
+    badge: "Everyday growth",
     subtitle:
-      "Designed for steady wealth accumulation, emergency reserves, and automated goal-based saving.",
-    rateLabel: "Annual Yield",
+      "A simple way to build your savings, prepare for future goals, and manage your money with confidence.",
+    rateLabel: "Illustrative annual yield",
     rateValue: "4.65% APY",
-    minBalance: "$100 minimum opening deposit",
-    highlighted: false,
-    cardBg: "bg-white",
+    minBalance: "$100",
     icon: PiggyBank,
     features: [
-      "Daily compounded interest credited monthly",
-      "Automated round-up & recurring goal vaults",
-      "Free virtual & physical debit card access",
-      "Instant transfers to checking & external banks",
-      "Real-time spending alerts & biometric lock",
+      "Interest credited monthly",
+      "Flexible savings and goal planning",
+      "Debit card access",
+      "Transaction history and account statements",
     ],
-    ctaLabel: "Open Savings Account",
+    ctaLabel: "Explore Savings",
     ctaHref: "/open-account?type=savings",
   },
   {
     id: "current",
     name: "Current Account",
-    badge: "Most Popular",
+    badge: "Most popular",
     subtitle:
-      "Built for high-frequency daily transactions, instant settlements, and frictionless cash management.",
-    rateLabel: "Transaction Limit",
-    rateValue: "Unlimited",
-    minBalance: "$250 minimum opening deposit",
+      "For everyday banking, regular payments, and convenient access to your money.",
+    rateLabel: "Transaction limit",
+    rateValue: "Flexible",
+    minBalance: "$250",
     highlighted: true,
-    cardBg: "bg-[#FCF8E8]",
     icon: CreditCard,
     features: [
-      "Unlimited domestic & instant peer-to-peer transfers",
-      "Overdraft protection buffer with transparent terms",
-      "Multi-currency wallet support & live FX conversion",
-      "Full ledger history, CSV/PDF statements & receipts",
-      "24/7 priority support via our banking platform",
+      "Convenient everyday transactions",
+      "Domestic fund transfers",
+      "Digital account activity and statements",
+      "Convenient access to banking services",
     ],
-    ctaLabel: "Open Current Account",
+    ctaLabel: "Explore Current",
     ctaHref: "/open-account?type=current",
   },
   {
     id: "business",
     name: "Business Account",
-    badge: "Enterprise & SME",
+    badge: "For growing businesses",
     subtitle:
-      "Engineered for companies managing payroll, vendor payouts, multi-user approvals, and treasury liquidity.",
-    rateLabel: "Treasury Boost",
+      "A banking solution designed to help businesses organize payments, manage cash flow, and handle daily operations.",
+    rateLabel: "Illustrative treasury rate",
     rateValue: "Up to 5.10%",
-    minBalance: "$1,000 minimum opening deposit",
-    highlighted: false,
-    cardBg: "bg-white",
+    minBalance: "$1,000",
     icon: Briefcase,
     features: [
-      "Role-based team access & multi-level payment approvals",
-      "Batch payroll disbursement & automated invoicing",
-      "Corporate virtual & physical cards with spend limits",
-      "Real-time cash-flow analytics & ERP export tools",
-      "Dedicated relationship manager & treasury advisory",
+      "Business-focused account management",
+      "Payment and transaction tracking",
+      "Team access and approval workflows",
+      "Financial activity and reporting tools",
     ],
-    ctaLabel: "Open Business Account",
+    ctaLabel: "Explore Business",
     ctaHref: "/open-account?type=business",
   },
 ];
 
+/* SCROLL REVEAL */
+
+function Reveal({
+  children,
+  delay = 0,
+  className = "",
+}: {
+  children: ReactNode;
+  delay?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const element = ref.current;
+
+    if (!element) return;
+
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    );
+
+    if (reducedMotion.matches) {
+      element.style.opacity = "1";
+      element.style.transform = "translateY(0)";
+      element.style.transition = "none";
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          element.style.opacity = "1";
+          element.style.transform = "translateY(0)";
+          observer.unobserve(element);
+        }
+      },
+      {
+        threshold: 0.12,
+        rootMargin: "0px 0px -40px 0px",
+      },
+    );
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        opacity: 0,
+        transform: "translateY(24px)",
+        transition: `opacity 700ms ease ${delay}ms, transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1) ${delay}ms`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ACCOUNT CARD */
+
+function AccountCard({
+  account,
+  selected,
+  onSelect,
+  index,
+}: {
+  account: AccountTier;
+  selected: boolean;
+  onSelect: () => void;
+  index: number;
+}) {
+  const Icon = account.icon;
+
+  return (
+    <Reveal delay={index * 100}>
+      <article
+        className={`group relative flex h-full flex-col overflow-hidden rounded-[1.75rem] border bg-white p-7 transition-all duration-300 sm:p-8 ${
+          selected
+            ? "border-[#3F72AF] shadow-[0_20px_55px_-35px_rgba(17,45,78,0.35)]"
+            : "border-[#DBE2EF] hover:-translate-y-1 hover:border-[#A9BEDA] hover:shadow-[0_20px_50px_-35px_rgba(17,45,78,0.25)]"
+        }`}
+      >
+        {account.highlighted && (
+          <div className="absolute right-0 top-0 rounded-bl-2xl bg-[#172554] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.13em] text-white">
+            Popular choice
+          </div>
+        )}
+
+        {/* ICON AND BADGE */}
+        <div className="flex items-center justify-between gap-3">
+          <div
+            className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-105 ${
+              selected
+                ? "bg-[#172554] text-white"
+                : "bg-[#EDF3FA] text-[#3F72AF]"
+            }`}
+          >
+            <Icon className="h-7 w-7" />
+          </div>
+
+          {!account.highlighted && (
+            <span className="rounded-full bg-[#F3F6FA] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#526782]">
+              {account.badge}
+            </span>
+          )}
+        </div>
+
+        {/* ACCOUNT INFORMATION */}
+        <div className="mt-7">
+          <h3 className="text-2xl font-semibold tracking-tight text-[#112D4E]">
+            {account.name}
+          </h3>
+
+          <p className="mt-3 min-h-[72px] text-sm leading-7 text-[#6B7280]">
+            {account.subtitle}
+          </p>
+        </div>
+
+        {/* ACCOUNT HIGHLIGHT */}
+        <div className="mt-7 rounded-2xl bg-[#F5F7FA] p-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7B8798]">
+            {account.rateLabel}
+          </p>
+
+          <p className="mt-2 text-2xl font-bold tracking-tight text-[#112D4E]">
+            {account.rateValue}
+          </p>
+
+          <div className="mt-4 flex items-center justify-between border-t border-[#E2E8F0] pt-4">
+            <span className="text-xs text-[#6B7280]">
+              Minimum opening deposit
+            </span>
+
+            <span className="text-sm font-semibold text-[#3F72AF]">
+              {account.minBalance}
+            </span>
+          </div>
+        </div>
+
+        {/* FEATURES */}
+        <div className="mt-7 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7B8798]">
+            Account highlights
+          </p>
+
+          <ul className="mt-4 space-y-4">
+            {account.features.map((feature) => (
+              <li key={feature} className="flex items-start gap-3">
+                <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#3F72AF]" />
+
+                <span className="text-sm leading-6 text-[#4B5563]">
+                  {feature}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* ACTIONS */}
+        <div className="mt-8 border-t border-[#E8EDF4] pt-6">
+          <button
+            type="button"
+            onClick={onSelect}
+            aria-pressed={selected}
+            className={`mb-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3F72AF] focus-visible:ring-offset-2 ${
+              selected
+                ? "border-[#3F72AF] bg-[#EDF3FA] text-[#172554]"
+                : "border-[#DBE2EF] bg-white text-[#4B5563] hover:border-[#3F72AF] hover:text-[#172554]"
+            }`}
+          >
+            {selected ? "Selected account" : "Select account"}
+          </button>
+
+          <Link
+            href={account.ctaHref}
+            className="group/link flex w-full items-center justify-center gap-2 rounded-xl bg-[#172554] px-5 py-3.5 text-sm font-semibold text-white no-underline transition-all duration-200 hover:bg-[#3F72AF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3F72AF] focus-visible:ring-offset-2"
+          >
+            {account.ctaLabel}
+
+            <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover/link:translate-x-1" />
+          </Link>
+        </div>
+      </article>
+    </Reveal>
+  );
+}
+
+/* MAIN SERVICES COMPONENT */
+
 export default function Services() {
-  const [selectedAccountId, setSelectedAccountId] = useState<string>("current");
-  const [segmentFilter, setSegmentFilter] = useState<BillingCycle>("personal");
+  const [segmentFilter, setSegmentFilter] =
+    useState<AccountSegment>("personal");
+
+  const [selectedAccountId, setSelectedAccountId] =
+    useState("current");
+
+  const filteredAccounts =
+    segmentFilter === "personal"
+      ? accountTypes.filter(
+          (account) =>
+            account.id === "savings" || account.id === "current",
+        )
+      : accountTypes.filter((account) => account.id === "business");
+
+  const handleSegmentChange = (segment: AccountSegment) => {
+    setSegmentFilter(segment);
+
+    setSelectedAccountId(
+      segment === "personal" ? "current" : "business",
+    );
+  };
 
   return (
     <section
       id="services"
-      className="w-full bg-[#F9F7F7] py-20 text-[#112D4E] lg:py-28"
+      className="w-full scroll-mt-24 overflow-hidden bg-[#F9F7F7] py-24 text-[#112D4E] sm:py-28 lg:py-32"
     >
-      <div className="mx-auto max-w-7xl px-5 lg:px-8">
-        {/* SECTION HEADER */}
-        <div className="flex flex-col items-start justify-between gap-6 lg:flex-row lg:items-end">
-          <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-[#DBE2EF] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-[#3F72AF]">
-              Services & Accounts
+      <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+        {/* SECTION INTRO */}
+        <Reveal>
+          <div className="mx-auto max-w-3xl text-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#DBE2EF] bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-[0.17em] text-[#3F72AF]">
+              Banking services
             </span>
 
-            <h2 className="mt-4 text-3xl font-bold leading-tight tracking-tight text-[#112D4E] sm:text-4xl">
-              Accounts Tailored to How You Save, Spend, and Scale
+            <h2 className="mt-6 text-3xl font-semibold leading-[1.2] tracking-tight text-[#112D4E] sm:text-4xl lg:text-5xl">
+              Banking that fits
+              <span className="block text-[#3F72AF]">
+                the way you live.
+              </span>
             </h2>
 
-            <p className="mt-3 text-sm leading-relaxed text-[#6B7280] sm:text-base">
-              Part of the{" "}
-              <span className="font-semibold text-[#112D4E]">
-                Trustora Bank
-              </span>{" "}
-              Advanced Digital Banking Management System—choose a Savings, Current, or Business account with clear terms and instant digital control.
+            <p className="mx-auto mt-6 max-w-2xl text-sm leading-7 text-[#6B7280] sm:text-base sm:leading-8">
+              Whether you are building your savings, managing everyday
+              expenses, or growing a business, explore an account designed
+              around your financial needs.
             </p>
           </div>
+        </Reveal>
 
-          {/* SEGMENT TOGGLE PILL */}
-          <div className="inline-flex rounded-xl border border-[#DBE2EF] bg-white p-1 shadow-xs">
-            <button
-              type="button"
-              onClick={() => setSegmentFilter("personal")}
-              className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors sm:text-sm ${
-                segmentFilter === "personal"
-                  ? "bg-[#172554] text-white"
-                  : "text-[#4B5563] hover:text-[#112D4E]"
-              }`}
+        {/* ACCOUNT SEGMENT SELECTOR */}
+        <Reveal delay={100}>
+          <div className="mt-12 flex flex-col items-center">
+            <p className="mb-4 text-xs font-semibold text-[#7B8798]">
+              Explore accounts for
+            </p>
+
+            <div
+              className="inline-flex w-full max-w-[360px] rounded-2xl border border-[#DBE2EF] bg-white p-1.5 shadow-sm"
+              role="group"
+              aria-label="Choose account category"
             >
-              Personal & Everyday
-            </button>
-            <button
-              type="button"
-              onClick={() => setSegmentFilter("business")}
-              className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors sm:text-sm ${
-                segmentFilter === "business"
-                  ? "bg-[#172554] text-white"
-                  : "text-[#4B5563] hover:text-[#112D4E]"
-              }`}
-            >
-              Business & Treasury
-            </button>
-          </div>
-        </div>
-
-        {/* THREE ACCOUNT CARDS (SAVINGS, CURRENT, BUSINESS) */}
-        <div className="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {accountTypes.map((account) => {
-            const Icon = account.icon;
-            const isSelected = selectedAccountId === account.id;
-            const isRecommendedForFilter =
-              (segmentFilter === "personal" &&
-                (account.id === "savings" || account.id === "current")) ||
-              (segmentFilter === "business" && account.id === "business");
-
-            return (
-              <div
-                key={account.id}
-                onClick={() => setSelectedAccountId(account.id)}
-                className={`relative flex cursor-pointer flex-col justify-between rounded-3xl border p-7 transition-all duration-200 sm:p-8 ${
-                  account.cardBg
-                } ${
-                  isSelected
-                    ? "border-[#3F72AF] ring-2 ring-[#3F72AF]/25 shadow-xl"
-                    : "border-[#DBE2EF] shadow-sm hover:-translate-y-1 hover:border-[#3F72AF]/70"
+              <button
+                type="button"
+                onClick={() => handleSegmentChange("personal")}
+                aria-pressed={segmentFilter === "personal"}
+                className={`flex-1 cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${
+                  segmentFilter === "personal"
+                    ? "bg-[#172554] text-white shadow-sm"
+                    : "text-[#6B7280] hover:bg-[#F3F6FA] hover:text-[#112D4E]"
                 }`}
               >
-                <div>
-                  {/* TOP BADGE ROW */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#172554] text-white">
-                      <Icon className="h-6 w-6" />
-                    </div>
+                Personal
+              </button>
 
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        account.highlighted
-                          ? "bg-[#172554] text-[#FCF8E8]"
-                          : "bg-[#DBE2EF]/80 text-[#112D4E]"
-                      }`}
-                    >
-                      {account.badge}
-                    </span>
-                  </div>
-
-                  {/* TITLE & SUBTITLE */}
-                  <h3 className="mt-6 text-2xl font-bold text-[#112D4E]">
-                    {account.name}
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-[#4B5563]">
-                    {account.subtitle}
-                  </p>
-
-                  {/* HIGHLIGHT METRIC STRIP */}
-                  <div className="mt-6 flex items-center justify-between rounded-2xl border border-[#DBE2EF] bg-[#F9F7F7] px-4 py-3.5">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">
-                        {account.rateLabel}
-                      </p>
-                      <p className="mt-0.5 text-lg font-extrabold text-[#112D4E]">
-                        {account.rateValue}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[11px] font-medium text-[#6B7280]">
-                        Opening Requirement
-                      </p>
-                      <p className="mt-0.5 text-xs font-semibold text-[#3F72AF]">
-                        {account.minBalance}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* FEATURES LIST */}
-                  <ul className="mt-6 space-y-3">
-                    {account.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2.5">
-                        <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#3F72AF]" />
-                        <span className="text-sm text-[#4B5563]">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* FOOTER ACTION */}
-                <div className="mt-8 border-t border-[#DBE2EF] pt-6">
-                  {isRecommendedForFilter && (
-                    <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-[#3F72AF]">
-                      <TrendingUp className="h-3.5 w-3.5" />
-                      <span>
-                        Matches{" "}
-                        {segmentFilter === "personal"
-                          ? "Personal & Everyday"
-                          : "Business & Treasury"}{" "}
-                        profile
-                      </span>
-                    </p>
-                  )}
-
-                  <Link
-                    href={account.ctaHref}
-                    className={`flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold no-underline transition-colors ${
-                      account.highlighted || isSelected
-                        ? "bg-[#172554] text-white hover:bg-[#112D4E]"
-                        : "border border-[#172554] bg-white text-[#172554] hover:bg-[#172554] hover:text-white"
-                    }`}
-                  >
-                    <span>{account.ctaLabel}</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* BOTTOM COMPARISON & SECURITY NOTE */}
-        <div className="mt-14 flex flex-col items-start justify-between gap-6 rounded-3xl border border-[#DBE2EF] bg-white p-6 shadow-xs sm:p-8 lg:flex-row lg:items-center">
-          <div className="flex items-start gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#DBE2EF]/70 text-[#172554]">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-[#112D4E]">
-                Protected Accounts Across Every Tier
-              </h4>
-              <p className="mt-1 text-sm text-[#6B7280]">
-                All Savings, Current, and Business accounts include real-time fraud protection, instant card freeze controls, and transparent monthly statements.
-              </p>
+              <button
+                type="button"
+                onClick={() => handleSegmentChange("business")}
+                aria-pressed={segmentFilter === "business"}
+                className={`flex-1 cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${
+                  segmentFilter === "business"
+                    ? "bg-[#172554] text-white shadow-sm"
+                    : "text-[#6B7280] hover:bg-[#F3F6FA] hover:text-[#112D4E]"
+                }`}
+              >
+                Business
+              </button>
             </div>
           </div>
+        </Reveal>
 
-          <Link
-            href="/loans"
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[#DBE2EF] bg-[#F9F7F7] px-5 py-2.5 text-sm font-semibold text-[#112D4E] no-underline transition-colors hover:border-[#3F72AF] hover:text-[#3F72AF]"
-          >
-            <span>Compare Loan Options</span>
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+        {/* ACCOUNT CARDS */}
+        <div
+          className={`mt-12 grid grid-cols-1 items-stretch gap-6 lg:mt-16 ${
+            segmentFilter === "personal"
+              ? "md:grid-cols-2"
+              : "mx-auto max-w-2xl"
+          }`}
+        >
+          {filteredAccounts.map((account, index) => (
+            <AccountCard
+              key={account.id}
+              account={account}
+              selected={selectedAccountId === account.id}
+              onSelect={() => setSelectedAccountId(account.id)}
+              index={index}
+            />
+          ))}
         </div>
+
+        {/* SECURITY AND SUPPORT STRIP */}
+        <Reveal>
+          <div className="mt-16 overflow-hidden rounded-[1.75rem] border border-[#DBE2EF] bg-white">
+            <div className="grid grid-cols-1 items-center gap-7 p-7 sm:p-9 lg:grid-cols-[1fr_auto] lg:px-10 lg:py-9">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#EDF3FA] text-[#3F72AF]">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-[#112D4E]">
+                    Banking with care and clarity
+                  </h3>
+
+                  <p className="mt-2 max-w-2xl text-sm leading-7 text-[#6B7280]">
+                    Explore account information, understand the available
+                    features, and review the terms before choosing an account.
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                href="/loans"
+                className="group inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#DBE2EF] bg-[#F9F7F7] px-5 py-3.5 text-sm font-semibold text-[#172554] no-underline transition-all duration-200 hover:border-[#3F72AF] hover:bg-[#EDF3FA] sm:w-auto"
+              >
+                Compare loan options
+
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+              </Link>
+            </div>
+          </div>
+        </Reveal>
+
+        {/* DISCLAIMER */}
+        <p className="mx-auto mt-7 max-w-3xl text-center text-[11px] leading-5 text-[#929CAB]">
+          Account features, rates, and minimum deposits shown are illustrative
+          examples for the Trustora Bank project. Actual products, eligibility,
+          fees, and terms would need to be confirmed before launch.
+        </p>
       </div>
     </section>
   );

@@ -15,7 +15,6 @@ import {
   Settings,
   LogOut,
   Landmark,
-  CreditCard,
   Send,
   ArrowDownLeft,
   ArrowUpRight,
@@ -133,8 +132,6 @@ export function StaffDashboardSidebar() {
 
   const isAdmin = pathname.startsWith("/dashboard/admin");
   const isCustomer = pathname.startsWith("/dashboard/customer");
-  const isStaff =
-    pathname.startsWith("/dashboard/bankStaff");
 
   const navItems = isAdmin
     ? adminNavItems
@@ -182,6 +179,7 @@ export function StaffDashboardSidebar() {
     });
   };
 
+  // MAIN ROLE-BASED NAVIGATION
   const navContent = (
     <nav className="flex flex-col gap-1.5">
       {navItems.map((item) => {
@@ -192,13 +190,7 @@ export function StaffDashboardSidebar() {
           (item.href !== "/dashboard/admin" &&
             item.href !== "/dashboard/customer" &&
             item.href !== "/dashboard/bankStaff" &&
-            pathname.startsWith(`${item.href}/`)) ||
-          (item.href === "/dashboard/admin" &&
-            pathname === item.href) ||
-          (item.href === "/dashboard/customer" &&
-            pathname === item.href) ||
-          (item.href === "/dashboard/bankStaff" &&
-            pathname === item.href);
+            pathname.startsWith(`${item.href}/`));
 
         return (
           <Link
@@ -218,6 +210,20 @@ export function StaffDashboardSidebar() {
     </nav>
   );
 
+  // BACK TO HOMEPAGE
+  const homepageLink = (
+    <div className="mt-6 border-t border-white/10 pt-4">
+      <Link
+        href="/"
+        className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-[#DBE2EF] transition-colors hover:bg-white/10 hover:text-white"
+      >
+        <Home size={19} />
+        <span>Back to Homepage</span>
+      </Link>
+    </div>
+  );
+
+  // PROFILE AND SIGN OUT
   const bottomContent = (
     <div className="border-t border-white/10 p-4">
       <Link
@@ -225,7 +231,7 @@ export function StaffDashboardSidebar() {
         className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${
           pathname === profileHref
             ? "bg-white/10 text-white"
-            : "text-[#DBE2EF] hover:bg-white/10"
+            : "text-[#DBE2EF] hover:bg-white/10 hover:text-white"
         }`}
       >
         <Settings size={19} />
@@ -250,6 +256,7 @@ export function StaffDashboardSidebar() {
     </div>
   );
 
+  // SIDEBAR HEADER
   const sidebarHeader = (
     <div className="flex items-center gap-3 border-b border-white/10 px-6 py-6">
       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FCF8E8] text-[#172554]">
@@ -277,12 +284,14 @@ export function StaffDashboardSidebar() {
           </p>
 
           {navContent}
+
+          {homepageLink}
         </div>
 
         {bottomContent}
       </aside>
 
-      {/* MOBILE SIDEBAR DRAWER */}
+      {/* MOBILE SIDEBAR */}
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-default bg-[#F9F7F7] px-4 py-3 lg:hidden">
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#112D4E] text-white">
@@ -322,6 +331,8 @@ export function StaffDashboardSidebar() {
                   </p>
 
                   {navContent}
+
+                  {homepageLink}
                 </Drawer.Body>
 
                 <div className="mt-auto">

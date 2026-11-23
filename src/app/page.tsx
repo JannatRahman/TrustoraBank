@@ -6,6 +6,7 @@ import Services from "@/components/Services";
 import Loans from "@/components/Loans";
 import Security from "@/components/Security";
 import Footer from "@/components/Footer";
+import Contact from "@/components/Contact";
 
 export default function Home() {
   return (
@@ -16,6 +17,7 @@ export default function Home() {
       <Services />
       <Loans />
       <Security />
+      <Contact/>
       <Footer />
     </>
   );

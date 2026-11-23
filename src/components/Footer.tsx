@@ -1,15 +1,16 @@
+
 "use client";
 
-import { useState, FormEvent } from "react";
 import { Link } from "@heroui/react";
 import {
-
   Envelope,
   Handset,
   MapPin,
   LogoFacebook,
-
   LogoLinkedin,
+  ArrowUpRight,
+  ArrowRight,
+  ShieldCheck,
 } from "@gravity-ui/icons";
 
 const companyLinks = [
@@ -20,7 +21,7 @@ const companyLinks = [
 ];
 
 const quickLinks = [
-  { name: "Open an Account", href: "/open-account" },
+  { name: "Open an Account", href: "/register" },
   { name: "Customer Login", href: "/login" },
   { name: "Interest Rates", href: "/rates" },
   { name: "Help Center", href: "/help" },
@@ -34,132 +35,109 @@ const legalLinks = [
 ];
 
 const socialLinks = [
-  { name: "Facebook", href: "https://facebook.com", icon: LogoFacebook },
-  { name: "LinkedIn", href: "https://linkedin.com", icon: LogoLinkedin },
+  {
+    name: "Facebook",
+    href: "https://facebook.com",
+    icon: LogoFacebook,
+  },
+  {
+    name: "LinkedIn",
+    href: "https://linkedin.com",
+    icon: LogoLinkedin,
+  },
 ];
 
 function Footer() {
-  const [email, setEmail] = useState("");
-  const [subscribed, setSubscribed] = useState(false);
-
-  const handleSubscribe = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setSubscribed(true);
-    setEmail("");
-  };
-
   return (
-    <footer className="w-full bg-[#F9F7F7] pt-16 text-[#112D4E]">
-      {/* TOP BAND WITH OVERLAPPING CTA BANNER */}
-      <div className="bg-[#DBE2EF]/60 px-5 pt-10 pb-28 lg:px-8">
-        <div className="mx-auto max-w-6xl rounded-3xl bg-gradient-to-r from-[#112D4E] via-[#172554] to-[#3F72AF] p-7 shadow-xl sm:p-11">
-          <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12">
-            {/* LEFT: BANKING VISUAL CARD */}
-            <div className="flex justify-center lg:col-span-5 lg:justify-start">
-              <div className="relative w-full max-w-[300px] lg:-mt-16 lg:-mb-6">
-                <div className="absolute -inset-2 rounded-3xl bg-[#FCF8E8]/15 blur-xl" />
+    <footer className="relative w-full overflow-hidden bg-white text-[#112D4E]">
+      <style jsx global>{`
+        @keyframes footerFadeUp {
+          from {
+            opacity: 0;
+            transform: translateY(18px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
 
-                <div className="relative flex flex-col justify-between rounded-2xl border border-white/20 bg-gradient-to-br from-[#3F72AF] to-[#112D4E] p-5 text-white shadow-2xl transition-transform duration-300 hover:-translate-y-1">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#172554] text-[#FCF8E8]">
+        .footer-fade-up {
+          animation: footerFadeUp 0.7s ease-out both;
+        }
 
-                      </div>
-                      <span className="text-xs font-bold uppercase tracking-widest text-[#DBE2EF]">
-                        Trustora Bank
-                      </span>
-                    </div>
+        @media (prefers-reduced-motion: reduce) {
+          .footer-fade-up {
+            animation: none;
+          }
+        }
+      `}</style>
 
-                    <div className="h-6 w-8 rounded-md border border-[#FCF8E8]/40 bg-[#FCF8E8]/20" />
-                  </div>
+      {/* TOP CALL TO ACTION */}
+      <section className="px-5 pb-16 pt-20 sm:px-7 sm:pb-20 lg:px-8 lg:pt-24">
+        <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-[#172554] px-7 py-12 sm:px-12 sm:py-16 lg:px-16">
+          {/* Background decoration */}
+          <div className="pointer-events-none absolute -right-20 -top-36 h-80 w-80 rounded-full border border-white/10" />
+          <div className="pointer-events-none absolute -right-5 -top-20 h-60 w-60 rounded-full border border-white/10" />
+          <div className="pointer-events-none absolute -bottom-40 left-1/3 h-80 w-80 rounded-full bg-[#3F72AF]/20 blur-[90px]" />
 
-                  <div className="my-5">
-                    <p className="text-[11px] uppercase tracking-wider text-[#DBE2EF]">
-                      Total Balance
-                    </p>
-                    <p className="mt-0.5 text-2xl font-bold tracking-tight text-white">
-                      $84,250.00
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs text-[#DBE2EF]">
-                    <span className="tracking-widest">•••• •••• •••• 7419</span>
-                    <span className="rounded-full bg-[#FCF8E8] px-2.5 py-0.5 text-[11px] font-semibold text-[#172554]">
-                      256-Bit SSL
-                    </span>
-                  </div>
-                </div>
+          <div className="relative flex flex-col items-start justify-between gap-9 lg:flex-row lg:items-center">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-2">
+                <ShieldCheck className="h-4 w-4 text-[#DBE2EF]" />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#DBE2EF]">
+                  The Trustora Experience
+                </span>
               </div>
-            </div>
 
-            {/* RIGHT: NEWSLETTER & UPDATES FORM */}
-            <div className="text-white lg:col-span-7">
-              <span className="inline-block rounded-full bg-[#FCF8E8]/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#FCF8E8]">
-                Advanced Digital Banking Management System
-              </span>
-
-              <h2 className="mt-3 text-2xl font-bold leading-snug sm:text-3xl">
-                Subscribe to our newsletter to get updates on smart banking
+              <h2 className="mt-6 text-3xl font-bold leading-tight tracking-tight text-white sm:text-4xl lg:text-[2.8rem]">
+                Take control of your
+                <br className="hidden sm:block" /> financial journey.
               </h2>
 
-              <p className="mt-2 text-sm text-[#DBE2EF]">
-                Stay informed about loan rates, security alerts, and new digital financial tools.
+              <p className="mt-4 max-w-lg text-sm leading-7 text-[#DBE2EF] sm:text-base">
+                Discover a more convenient way to manage your accounts,
+                explore financial services, and stay connected with your money.
               </p>
+            </div>
 
-              <form
-                onSubmit={handleSubscribe}
-                className="mt-6 flex max-w-lg flex-col rounded-2xl border border-white/25 bg-white/15 p-1.5 backdrop-blur-sm sm:flex-row sm:items-center sm:rounded-full"
+            <div className="flex shrink-0 flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
+              <Link
+                href="/register"
+                className="group inline-flex cursor-pointer items-center justify-center gap-3 rounded-xl bg-white px-6 py-4 text-sm font-bold text-[#172554] no-underline transition-all duration-300 hover:-translate-y-1 hover:bg-[#FCF8E8] hover:shadow-xl"
               >
-                <div className="flex flex-1 items-center px-4 py-2.5 sm:py-0">
-                  <Envelope className="mr-2.5 h-4 w-4 shrink-0 text-[#DBE2EF]" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="w-full bg-transparent text-sm text-white placeholder-[#DBE2EF]/80 focus:outline-none"
-                  />
-                </div>
+                Open an Account
+                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+              </Link>
 
-                <button
-                  type="submit"
-                  className="shrink-0 rounded-xl bg-[#172554] px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#112D4E] sm:rounded-full"
-                >
-                  {subscribed ? "Subscribed!" : "Subscribe"}
-                </button>
-              </form>
-
-              <p className="mt-3 text-xs text-[#DBE2EF]/90">
-                You will be able to unsubscribe at any time. Read our privacy policy{" "}
-                <Link
-                  href="/privacy-policy"
-                  className="text-xs font-medium text-[#FCF8E8] underline hover:text-white"
-                >
-                  here
-                </Link>
-                .
-              </p>
+              <Link
+                href="/contact"
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/5 px-6 py-4 text-sm font-semibold text-white no-underline transition-all duration-300 hover:border-white/60 hover:bg-white/10"
+              >
+                Contact Us
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* MAIN WHITE FOOTER SECTION */}
-      <div className="-mt-20 border-t border-[#DBE2EF] bg-white px-5 pt-28 pb-8 lg:px-8">
+      {/* MAIN FOOTER */}
+      <div className="border-t border-[#DBE2EF] bg-[#F9F7F7] px-5 pb-8 pt-16 sm:px-7 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          <div className="grid grid-cols-1 gap-10 pb-12 md:grid-cols-2 lg:grid-cols-12">
-            {/* COLUMN 1: BRAND INFO & SOCIAL ICONS */}
-            <div className="space-y-4 lg:col-span-4">
+          <div className="grid gap-12 pb-14 sm:grid-cols-2 lg:grid-cols-12 lg:gap-10">
+
+            {/* BRAND COLUMN */}
+            <div
+              className="footer-fade-up space-y-5 lg:col-span-4"
+              style={{ animationDelay: "50ms" }}
+            >
               <Link
                 href="/"
-                className="flex items-center gap-3 text-[#112D4E] no-underline"
+                aria-label="Trustora Bank homepage"
+                className="group inline-flex cursor-pointer items-center gap-3 text-[#112D4E] no-underline"
               >
-                <div className="">
-
-                </div>
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-950 text-white">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#172554] text-white shadow-md transition-transform duration-300 group-hover:-translate-y-1">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="27"
@@ -182,33 +160,29 @@ function Footer() {
                 </div>
 
                 <div className="flex flex-col">
-                  <span className="text-lg font-bold tracking-tight text-[#112D4E]">
+                  <span className="text-xl font-bold tracking-tight">
                     Trustora
                   </span>
-                  <span className="text-[10px] font-semibold uppercase tracking-[3px] text-[#6B7280]">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#6B7280]">
                     Bank
                   </span>
                 </div>
               </Link>
 
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#3F72AF]">
-                Advanced Digital Banking Management System
+              <p className="max-w-sm text-sm leading-7 text-[#6B7280]">
+                A modern digital banking experience designed to make everyday
+                financial activities simpler, clearer, and more convenient.
               </p>
 
-              <p className="max-w-sm text-sm leading-relaxed text-[#6B7280]">
-                Secure, transparent, and modern digital banking built to simplify everyday payments, savings, and business finance.
-              </p>
-
-              {/* GRAVITY UI SOCIAL ICONS */}
-              <div className="flex items-center gap-3 pt-2">
+              <div className="flex items-center gap-3 pt-1">
                 {socialLinks.map(({ name, href, icon: Icon }) => (
                   <a
                     key={name}
                     href={href}
                     target="_blank"
-                    rel="noreferrer"
-                    aria-label={name}
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[#DBE2EF] bg-[#F9F7F7] text-[#112D4E] transition-colors hover:border-[#172554] hover:bg-[#172554] hover:text-white"
+                    rel="noopener noreferrer"
+                    aria-label={`Visit Trustora on ${name}`}
+                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-[#DBE2EF] bg-white text-[#112D4E] transition-all duration-300 hover:-translate-y-1 hover:border-[#172554] hover:bg-[#172554] hover:text-white"
                   >
                     <Icon className="h-4 w-4" />
                   </a>
@@ -216,82 +190,144 @@ function Footer() {
               </div>
             </div>
 
-            {/* COLUMN 2: COMPANY */}
-            <div className="lg:col-span-2">
-              <h3 className="mb-4 text-sm font-bold text-[#112D4E]">Company</h3>
-              <ul className="space-y-3">
+            {/* COMPANY LINKS */}
+            <div
+              className="footer-fade-up lg:col-span-2"
+              style={{ animationDelay: "120ms" }}
+            >
+              <h3 className="text-sm font-bold text-[#112D4E]">
+                Company
+              </h3>
+
+              <ul className="mt-6 space-y-4">
                 {companyLinks.map((item) => (
                   <li key={item.name}>
                     <Link
                       href={item.href}
-                      className="text-sm font-medium text-[#4B5563] no-underline transition-colors hover:text-[#3F72AF]"
+                      className="group inline-flex cursor-pointer items-center gap-1 text-sm text-[#6B7280] no-underline transition-colors duration-200 hover:text-[#3F72AF]"
                     >
                       {item.name}
+                      <ArrowUpRight className="h-3 w-3 opacity-0 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:opacity-100" />
                     </Link>
                   </li>
                 ))}
               </ul>
             </div>
 
-            {/* COLUMN 3: QUICK LINKS */}
-            <div className="lg:col-span-3">
-              <h3 className="mb-4 text-sm font-bold text-[#112D4E]">
+            {/* QUICK LINKS */}
+            <div
+              className="footer-fade-up lg:col-span-3"
+              style={{ animationDelay: "190ms" }}
+            >
+              <h3 className="text-sm font-bold text-[#112D4E]">
                 Quick Links
               </h3>
-              <ul className="space-y-3">
+
+              <ul className="mt-6 space-y-4">
                 {quickLinks.map((item) => (
                   <li key={item.name}>
                     <Link
                       href={item.href}
-                      className="text-sm font-medium text-[#4B5563] no-underline transition-colors hover:text-[#3F72AF]"
+                      className="group inline-flex cursor-pointer items-center gap-1 text-sm text-[#6B7280] no-underline transition-colors duration-200 hover:text-[#3F72AF]"
                     >
                       {item.name}
+                      <ArrowUpRight className="h-3 w-3 opacity-0 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:opacity-100" />
                     </Link>
                   </li>
                 ))}
               </ul>
             </div>
 
-            {/* COLUMN 4: CONTACT DETAILS */}
-            <div className="lg:col-span-3">
-              <h3 className="mb-4 text-sm font-bold text-[#112D4E]">
-                Contact Us
+            {/* CONTACT */}
+            <div
+              className="footer-fade-up lg:col-span-3"
+              style={{ animationDelay: "260ms" }}
+            >
+              <h3 className="text-sm font-bold text-[#112D4E]">
+                Get in Touch
               </h3>
-              <ul className="space-y-3.5 text-sm text-[#4B5563]">
+
+              <p className="mt-5 max-w-xs text-sm leading-6 text-[#6B7280]">
+                Have a question about Trustora? Get in touch with our team.
+              </p>
+
+              <ul className="mt-6 space-y-5">
                 <li className="flex items-start gap-3">
-                  <Handset className="mt-0.5 h-4 w-4 shrink-0 text-[#3F72AF]" />
-                  <span>+1 (800) 456-7890</span>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#3F72AF]">
+                    <Envelope className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">
+                      Email
+                    </p>
+                    <a
+                      href="mailto:support@trustorabank.com"
+                      className="mt-1 block break-all text-sm font-medium text-[#112D4E] transition-colors hover:text-[#3F72AF]"
+                    >
+                      support@trustorabank.com
+                    </a>
+                  </div>
                 </li>
 
                 <li className="flex items-start gap-3">
-                  <Envelope className="mt-0.5 h-4 w-4 shrink-0 text-[#3F72AF]" />
-                  <span>support@trustorabank.com</span>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#3F72AF]">
+                    <Handset className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">
+                      Phone
+                    </p>
+                    <a
+                      href="tel:+18004567890"
+                      className="mt-1 block text-sm font-medium text-[#112D4E] transition-colors hover:text-[#3F72AF]"
+                    >
+                      +1 (800) 456-7890
+                    </a>
+                  </div>
                 </li>
 
                 <li className="flex items-start gap-3">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#3F72AF]" />
-                  <span className="text-[#6B7280]">
-                    100 Financial District Plaza, Suite 400
-                  </span>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#3F72AF]">
+                    <MapPin className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">
+                      Location
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-[#6B7280]">
+                      Digital banking platform
+                    </p>
+                  </div>
                 </li>
               </ul>
             </div>
           </div>
 
-          {/* BOTTOM BAR: COPYRIGHT & LEGAL LINKS */}
-          <div className="flex flex-col items-center justify-between gap-4 border-t border-[#DBE2EF] pt-6 text-xs text-[#6B7280] sm:flex-row">
-            © 2026 Trustora Bank. All rights reserved.
-            <div className="flex flex-wrap items-center justify-center gap-6">
+          {/* BOTTOM BAR */}
+          <div className="flex flex-col gap-5 border-t border-[#DBE2EF] pt-7 md:flex-row md:items-center md:justify-between">
+            <p className="text-xs text-[#9CA3AF]">
+              © 2026 Trustora Bank. All rights reserved.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
               {legalLinks.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className="text-xs font-medium text-[#4B5563] no-underline transition-colors hover:text-[#3F72AF]"
+                  className="cursor-pointer text-xs font-medium text-[#6B7280] no-underline transition-colors hover:text-[#3F72AF]"
                 >
                   {item.name}
                 </Link>
               ))}
             </div>
+
+            <Link
+              href="/"
+              className="group inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-[#3F72AF] no-underline transition-colors hover:text-[#172554]"
+            >
+              Back to top
+              <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </Link>
           </div>
         </div>
       </div>
