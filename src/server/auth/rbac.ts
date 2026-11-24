@@ -35,6 +35,15 @@ export async function requireAuth(): Promise<AuthContext> {
     }
   }
 
+  // Enforce active status on staff and admin accounts as well
+  if (["banking-staff", "admin"].includes(session.user.role)) {
+    if (session.user.status && session.user.status !== "ACTIVE") {
+      throw new ForbiddenError(
+        `Staff account is currently ${session.user.status.toLowerCase()}. Access denied.`
+      );
+    }
+  }
+
   return session;
 }
 

@@ -17,6 +17,10 @@ export const COLLECTIONS = {
   TRANSACTION_PINS: "transactionPins",
   AUDIT_LOGS: "auditLogs",
   BANK_SETTINGS: "bankSettings",
+  KYC_DOCUMENTS: "kycDocuments",
+  KYC_UPLOAD_INTENTS: "kycUploadIntents",
+  EMAIL_OUTBOX: "emailOutbox",
+  ADMIN_GUARD: "adminGuard",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
@@ -283,3 +287,97 @@ export interface DbNotification {
   createdAt: string | Date;
   updatedAt: string | Date;
 }
+
+// KYC Document Types
+export type KycProcessingStatus =
+  | "UPLOAD_PENDING"
+  | "SCAN_PENDING"
+  | "PROCESSING"
+  | "PENDING_REVIEW"
+  | "VERIFIED"
+  | "REJECTED"
+  | "FAILED";
+
+export interface EncryptedField {
+  encryptedData: string;
+  iv: string;
+  authTag: string;
+  encryptedKey: string;
+  keyIv: string;
+  keyAuthTag: string;
+  algorithm: string;
+  version: number;
+}
+
+export interface KycDocumentAsset {
+  storageKey: string;
+  originalFileName: string;
+  contentType: string;
+  sizeBytes: number;
+  sha256Hash: string;
+  uploadedAt: string | Date;
+  quarantineStatus: "PENDING" | "CLEARED" | "QUARANTINED";
+  metadata?: Record<string, unknown>;
+}
+
+export interface DbKycDocument {
+  _id?: string | any;
+  userId: any; // ObjectId or string
+  userEmail: string;
+  documentType: KycDocumentType;
+  encryptedDocumentNumber: EncryptedField;
+  maskedDocumentNumber: string;
+  documentAsset: KycDocumentAsset;
+  status: KycProcessingStatus;
+  rejectionReason?: string;
+  reviewedBy?: string;
+  reviewedAt?: string | Date;
+  legalHold: boolean;
+  submittedAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface DbKycUploadIntent {
+  _id?: string | any;
+  uploadToken: string;
+  userId: any; // ObjectId or string
+  userEmail: string;
+  documentType: KycDocumentType;
+  documentNumber: string;
+  quarantineKey: string;
+  fileName: string;
+  contentType: string;
+  status: "ISSUED" | "CONSUMED" | "EXPIRED";
+  expiresAt: string | Date;
+  consumedAt?: string | Date;
+  createdAt: string | Date;
+}
+
+// Email Outbox (Transactional Outbox Pattern)
+export interface DbEmailOutbox {
+  _id?: string | any;
+  recipientEmail: string;
+  recipientName?: string;
+  subject: string;
+  template: string;
+  templateData: Record<string, unknown>;
+  status: "PENDING" | "SENT" | "FAILED";
+  attempts: number;
+  lastAttemptAt?: string | Date;
+  sentAt?: string | Date;
+  lastError?: string;
+  nextRetryAt?: string | Date;
+  referenceEntity?: string;
+  referenceId?: string;
+  createdAt: string | Date;
+}
+
+// Admin Guard (Serialization & Write-Skew Defense)
+export interface DbAdminGuard {
+  _id: "admin_concurrency_guard";
+  activeAdminCount: number;
+  version: number;
+  lastAuditedAt: string | Date;
+  updatedAt: string | Date;
+}
+

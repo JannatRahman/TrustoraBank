@@ -1,26 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireStaffOrAdmin, handleApiError } from "@/server/auth";
-import { KycService } from "@/services/kycService";
-import type { KycStatus } from "@/types";
+import { requireStaffOrAdmin } from "@/server/auth/rbac";
+import { KycDocumentService } from "@/services/kycDocumentService";
+import { KycProcessingStatus } from "@/types";
+import { ForbiddenError, isNextPrerenderSignal } from "@/server/auth/errors";
 
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     await requireStaffOrAdmin();
-    const searchParams = request.nextUrl.searchParams;
 
-    const status = (searchParams.get("status") as KycStatus) || undefined;
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status") as KycProcessingStatus | undefined;
     const search = searchParams.get("search") || undefined;
-    const page = searchParams.get("page") ? parseInt(searchParams.get("page")!, 10) : 1;
-    const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!, 10) : 20;
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "10", 10);
 
-    const result = await KycService.listKycRecords({ status, search, page, limit });
-
-    return NextResponse.json({
-      success: true,
-      data: result.records,
-      pagination: result.pagination,
+    const result = await KycDocumentService.listSubmissions({
+      status,
+      search,
+      page,
+      limit,
     });
-  } catch (error) {
-    return handleApiError(error);
+
+    return NextResponse.json(result);
+  } catch (err: unknown) {
+    if (isNextPrerenderSignal(err)) {
+      throw err;
+    }
+    if (err instanceof ForbiddenError) {
+      return NextResponse.json({ error: err.message }, { status: 403 });
+    }
+    const message = err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

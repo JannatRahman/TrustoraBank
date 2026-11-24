@@ -38,7 +38,42 @@ export class BadRequestError extends ApiError {
   }
 }
 
+export class ConflictError extends ApiError {
+  constructor(message: string = "Conflict.") {
+    super(message, 409);
+    this.name = "ConflictError";
+  }
+}
+
+/**
+ * Check if an error is a Next.js internal prerendering / navigation signal.
+ * In Next.js 16 with cacheComponents, these signals must be re-thrown so the
+ * framework can handle prerendering deferral, dynamic rendering, redirects, and notFound.
+ */
+export function isNextPrerenderSignal(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+  const err = error as Record<string, unknown>;
+  const digest = typeof err.digest === "string" ? err.digest : "";
+  const code = typeof err.code === "string" ? err.code : "";
+
+  return (
+    digest === "HANGING_PROMISE_REJECTION" ||
+    digest === "DYNAMIC_SERVER_USAGE" ||
+    digest === "NEXT_PRERENDER_INTERRUPTED" ||
+    digest === "NEXT_REDIRECT" ||
+    digest === "NEXT_NOT_FOUND" ||
+    code === "NEXT_STATIC_GEN_BAILOUT"
+  );
+}
+
 export function handleApiError(error: unknown) {
+  // Never swallow or convert Next.js prerendering or dynamic navigation signals
+  if (isNextPrerenderSignal(error)) {
+    throw error;
+  }
+
   if (error instanceof ApiError) {
     return NextResponse.json(
       {

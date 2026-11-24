@@ -1,30 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireCustomer, handleApiError } from "@/server/auth";
-import { KycService } from "@/services/kycService";
-import { validateKycSubmitPayload } from "@/validators/adminValidator";
+import { requireAuth } from "@/server/auth/rbac";
+import { KycDocumentService } from "@/services/kycDocumentService";
+import { BadRequestError, NotFoundError, ForbiddenError } from "@/server/auth/errors";
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const { user } = await requireCustomer();
-    const body = await request.json();
+    const auth = await requireAuth();
 
-    const payload = validateKycSubmitPayload(body);
-    const updated = await KycService.submitKyc(
-      user.email,
-      payload.documentType,
-      payload.documentNumber
-    );
+    const body = await req.json().catch(() => null);
+    if (!body || !body.uploadToken) {
+      return NextResponse.json({ error: "uploadToken is required." }, { status: 400 });
+    }
 
-    return NextResponse.json({
-      success: true,
-      message: "KYC documents submitted successfully. Verification is pending review.",
-      data: {
-        kycStatus: updated.kycStatus,
-        kycDocumentType: updated.kycDocumentType,
-        kycSubmittedAt: updated.kycSubmittedAt,
-      },
+    const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || undefined;
+    const userAgent = req.headers.get("user-agent") || undefined;
+
+    const result = await KycDocumentService.submitUploadedDocument({
+      userId: auth.user.id,
+      userEmail: auth.user.email,
+      uploadToken: body.uploadToken,
+      ipAddress,
+      userAgent,
     });
-  } catch (error) {
-    return handleApiError(error);
+
+    return NextResponse.json(result, { status: 200 });
+  } catch (err: unknown) {
+    if (err instanceof ForbiddenError) {
+      return NextResponse.json({ error: err.message }, { status: 403 });
+    }
+    if (err instanceof BadRequestError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    const message = err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

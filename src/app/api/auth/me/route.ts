@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "@/server/auth/session";
+import { isNextPrerenderSignal } from "@/server/auth/errors";
 
 export async function GET() {
   try {
@@ -20,6 +21,9 @@ export async function GET() {
       user: session.user,
     });
   } catch (error) {
+    if (isNextPrerenderSignal(error)) {
+      throw error;
+    }
     console.error("GET /api/auth/me error:", error);
     return NextResponse.json(
       {

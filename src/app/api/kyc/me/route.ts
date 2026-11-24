@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
-import { requireAuth, handleApiError } from "@/server/auth";
-import { KycService } from "@/services/kycService";
+import { requireAuth } from "@/server/auth/rbac";
+import { KycDocumentService } from "@/services/kycDocumentService";
+import { ForbiddenError, isNextPrerenderSignal } from "@/server/auth/errors";
 
 export async function GET() {
   try {
-    const { user } = await requireAuth();
-    const status = await KycService.getKycStatus(user.email);
-
-    return NextResponse.json({
-      success: true,
-      data: status,
-    });
-  } catch (error) {
-    return handleApiError(error);
+    const auth = await requireAuth();
+    const status = await KycDocumentService.getCustomerKycStatus(auth.user.id);
+    return NextResponse.json(status);
+  } catch (err: unknown) {
+    if (isNextPrerenderSignal(err)) {
+      throw err;
+    }
+    if (err instanceof ForbiddenError) {
+      return NextResponse.json({ error: err.message }, { status: 403 });
+    }
+    const message = err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
