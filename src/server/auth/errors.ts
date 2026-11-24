@@ -45,6 +45,13 @@ export class ConflictError extends ApiError {
   }
 }
 
+export class TooManyRequestsError extends ApiError {
+  constructor(message: string = "Too many requests. Please try again later.") {
+    super(message, 429);
+    this.name = "TooManyRequestsError";
+  }
+}
+
 /**
  * Check if an error is a Next.js internal prerendering / navigation signal.
  * In Next.js 16 with cacheComponents, these signals must be re-thrown so the

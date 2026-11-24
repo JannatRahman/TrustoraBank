@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ArrowDownLeft,
   Wallet,
@@ -14,6 +14,7 @@ import {
   Banknote,
   AlertCircle,
   X,
+  Loader2,
 } from "lucide-react";
 
 type DepositStatus = "Pending" | "Approved" | "Rejected";
@@ -28,65 +29,26 @@ type DepositRequest = {
   status: DepositStatus;
 };
 
-const accounts = [
-  {
-    id: "1",
-    accountNumber: "TRS-1000-4521",
-    type: "Savings",
-    balance: 245000,
-  },
-  {
-    id: "2",
-    accountNumber: "TRS-1000-7832",
-    type: "Current",
-    balance: 580000,
-  },
-  {
-    id: "3",
-    accountNumber: "TRS-1000-2165",
-    type: "Business",
-    balance: 125500,
-  },
-];
+type AccountOption = {
+  accountNumber: string;
+  type: string;
+  balance: number;
+  status: string;
+};
 
-const initialRequests: DepositRequest[] = [
-  {
-    id: "DEP-2026-00124",
-    accountNumber: "TRS-1000-4521",
-    accountType: "Savings",
-    amount: 25000,
-    date: "22 Nov 2026",
-    description: "Monthly savings deposit",
-    status: "Pending",
-  },
-  {
-    id: "DEP-2026-00118",
-    accountNumber: "TRS-1000-7832",
-    accountType: "Current",
-    amount: 50000,
-    date: "18 Nov 2026",
-    description: "Business cash deposit",
-    status: "Approved",
-  },
-  {
-    id: "DEP-2026-00109",
-    accountNumber: "TRS-1000-4521",
-    accountType: "Savings",
-    amount: 15000,
-    date: "12 Nov 2026",
-    description: "Personal savings",
-    status: "Rejected",
-  },
-  {
-    id: "DEP-2026-00102",
-    accountNumber: "TRS-1000-2165",
-    accountType: "Business",
-    amount: 80000,
-    date: "05 Nov 2026",
-    description: "Business funds",
-    status: "Approved",
-  },
-];
+const mapBackendStatus = (status: string): DepositStatus => {
+  switch (status?.toUpperCase()) {
+    case "APPROVED":
+      return "Approved";
+    case "REJECTED":
+      return "Rejected";
+    case "PENDING":
+    default:
+      return "Pending";
+  }
+};
+
+const initialRequests: DepositRequest[] = [];
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("en-BD", {
@@ -96,8 +58,12 @@ const formatCurrency = (amount: number) =>
   }).format(amount);
 
 export default function CustomerDepositRequestsPage() {
-  const [requests, setRequests] = useState(initialRequests);
-  const [accountId, setAccountId] = useState(accounts[0].id);
+  const [requests, setRequests] = useState<DepositRequest[]>(initialRequests);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+  const [userAccounts, setUserAccounts] = useState<AccountOption[]>([]);
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedAccountNumber, setSelectedAccountNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [filter, setFilter] = useState("All");
@@ -106,8 +72,64 @@ export default function CustomerDepositRequestsPage() {
   const [showForm, setShowForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
+  const fetchRequests = async () => {
+    try {
+      setIsLoadingRequests(true);
+      const res = await fetch("/api/requests?type=DEPOSIT&limit=50");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const mapped: DepositRequest[] = json.data.map((item: any) => ({
+          id: item.requestId || item._id,
+          accountNumber: item.account,
+          accountType: "Bank Account",
+          amount: item.amount,
+          date: item.createdAt
+            ? new Date(item.createdAt).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : "",
+          description: item.description || "Deposit request",
+          status: mapBackendStatus(item.status),
+        }));
+        setRequests(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to fetch deposit requests:", err);
+    } finally {
+      setIsLoadingRequests(false);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      setIsLoadingAccounts(true);
+      const res = await fetch("/api/accounts");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setUserAccounts(json.data);
+        if (json.data.length > 0) {
+          setSelectedAccountNumber((prev) =>
+            prev || json.data[0].accountNumber
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load customer accounts:", err);
+    } finally {
+      setIsLoadingAccounts(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRequests();
+    fetchAccounts();
+  }, []);
+
   const selectedAccount =
-    accounts.find((account) => account.id === accountId) ?? accounts[0];
+    userAccounts.find((account) => account.accountNumber === selectedAccountNumber) ??
+    userAccounts[0];
 
   const totalPending = requests
     .filter((request) => request.status === "Pending")
@@ -130,10 +152,15 @@ export default function CustomerDepositRequestsPage() {
     return matchesFilter && matchesSearch;
   });
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setSuccessMessage("");
+
+    if (!selectedAccountNumber) {
+      setError("Please select a valid bank account.");
+      return;
+    }
 
     const numericAmount = Number(amount);
 
@@ -147,8 +174,8 @@ export default function CustomerDepositRequestsPage() {
       return;
     }
 
-    if (numericAmount > 1000000) {
-      setError("Maximum deposit request amount is ৳1,000,000.");
+    if (numericAmount > 10000000) {
+      setError("Maximum deposit request amount is ৳10,000,000.");
       return;
     }
 
@@ -157,25 +184,38 @@ export default function CustomerDepositRequestsPage() {
       return;
     }
 
-    const newRequest: DepositRequest = {
-      id: `DEP-2026-${String(Date.now()).slice(-5)}`,
-      accountNumber: selectedAccount.accountNumber,
-      accountType: selectedAccount.type,
-      amount: numericAmount,
-      date: "22 Nov 2026",
-      description: description.trim() || "Deposit request",
-      status: "Pending",
-    };
+    try {
+      setIsSubmitting(true);
+      const res = await fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          account: selectedAccountNumber,
+          type: "DEPOSIT",
+          amount: numericAmount,
+          description: description.trim() || "Deposit request",
+        }),
+      });
 
-    setRequests((previous) => [newRequest, ...previous]);
-    setAmount("");
-    setDescription("");
-    setShowForm(false);
-    setFilter("All");
-    setSearch("");
-    setSuccessMessage(
-      `Your deposit request for ${formatCurrency(numericAmount)} has been submitted.`
-    );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || json.message || "Failed to submit deposit request.");
+      }
+
+      await fetchRequests();
+      setAmount("");
+      setDescription("");
+      setShowForm(false);
+      setFilter("All");
+      setSearch("");
+      setSuccessMessage(
+        `Your deposit request for ${formatCurrency(numericAmount)} has been submitted and is pending review.`
+      );
+    } catch (err: any) {
+      setError(err.message || "An error occurred while submitting your request.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -258,7 +298,7 @@ export default function CustomerDepositRequestsPage() {
           <SummaryCard
             icon={<Wallet size={21} />}
             label="My Accounts"
-            value={String(accounts.length)}
+            value={String(userAccounts.length)}
             description="Available banking accounts"
             color="purple"
           />
@@ -274,48 +314,59 @@ export default function CustomerDepositRequestsPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {accounts.map((account) => (
-              <div
-                key={account.id}
-                className={`rounded-2xl border bg-white p-5 shadow-sm ${
-                  account.id === accountId
-                    ? "border-[#3F72AF] ring-1 ring-[#3F72AF]/20"
-                    : "border-[#DBE2EF]"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="rounded-xl bg-blue-50 p-3 text-[#3F72AF]">
-                    <Wallet size={21} />
-                  </div>
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                    Active
-                  </span>
-                </div>
-                <p className="mt-4 text-sm font-semibold text-[#112D4E]">
-                  {account.type} Account
-                </p>
-                <p className="mt-1 text-xs text-[#9CA3AF]">
-                  {account.accountNumber}
-                </p>
-                <p className="mt-4 text-xs text-[#6B7280]">
-                  Current Balance
-                </p>
-                <h3 className="mt-1 text-xl font-bold text-[#112D4E]">
-                  {formatCurrency(account.balance)}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAccountId(account.id);
-                    setShowForm(true);
-                    setError("");
-                  }}
-                  className="mt-4 w-full rounded-lg border border-[#DBE2EF] px-3 py-2 text-sm font-semibold text-[#3F72AF] transition hover:bg-blue-50"
-                >
-                  Deposit to this account
-                </button>
+            {isLoadingAccounts ? (
+              <div className="col-span-3 flex items-center justify-center gap-2 rounded-2xl border border-[#DBE2EF] bg-white p-8 text-sm text-[#6B7280]">
+                <Loader2 size={18} className="animate-spin text-[#3F72AF]" />
+                Loading your accounts...
               </div>
-            ))}
+            ) : userAccounts.length > 0 ? (
+              userAccounts.map((account) => (
+                <div
+                  key={account.accountNumber}
+                  className={`rounded-2xl border bg-white p-5 shadow-sm ${
+                    account.accountNumber === selectedAccountNumber
+                      ? "border-[#3F72AF] ring-1 ring-[#3F72AF]/20"
+                      : "border-[#DBE2EF]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="rounded-xl bg-blue-50 p-3 text-[#3F72AF]">
+                      <Wallet size={21} />
+                    </div>
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      {account.status || "Active"}
+                    </span>
+                  </div>
+                  <p className="mt-4 text-sm font-semibold text-[#112D4E]">
+                    {account.type} Account
+                  </p>
+                  <p className="mt-1 text-xs text-[#9CA3AF]">
+                    {account.accountNumber}
+                  </p>
+                  <p className="mt-4 text-xs text-[#6B7280]">
+                    Current Balance
+                  </p>
+                  <h3 className="mt-1 text-xl font-bold text-[#112D4E]">
+                    {formatCurrency(account.balance)}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedAccountNumber(account.accountNumber);
+                      setShowForm(true);
+                      setError("");
+                    }}
+                    className="mt-4 w-full rounded-lg border border-[#DBE2EF] px-3 py-2 text-sm font-semibold text-[#3F72AF] transition hover:bg-blue-50"
+                  >
+                    Deposit to this account
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-3 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-800">
+                No active bank accounts found. Contact bank staff or administrator to open your bank account.
+              </div>
+            )}
           </div>
         </section>
 
@@ -367,7 +418,14 @@ export default function CustomerDepositRequestsPage() {
               </thead>
 
               <tbody className="divide-y divide-[#F1F5F9]">
-                {filteredRequests.length > 0 ? (
+                {isLoadingRequests ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <Loader2 size={28} className="mx-auto animate-spin text-[#3F72AF]" />
+                      <p className="mt-3 text-sm font-semibold text-[#112D4E]">Loading deposit requests...</p>
+                    </td>
+                  </tr>
+                ) : filteredRequests.length > 0 ? (
                   filteredRequests.map((request) => (
                     <tr
                       key={request.id}
@@ -442,7 +500,7 @@ export default function CustomerDepositRequestsPage() {
         </div>
 
         <p className="pb-3 text-center text-xs text-[#9CA3AF]">
-          Trustora Bank · Customer Portal · Illustrative demo data
+          Trustora Bank · Customer Portal · All deposit requests are recorded securely in the financial ledger.
         </p>
       </div>
 
@@ -480,20 +538,33 @@ export default function CustomerDepositRequestsPage() {
                 <label className="mb-2 block text-sm font-semibold text-[#112D4E]">
                   Select Account
                 </label>
-                <select
-                  value={accountId}
-                  onChange={(event) => setAccountId(event.target.value)}
-                  className="w-full rounded-xl border border-[#DBE2EF] bg-white px-4 py-3 text-sm text-[#112D4E] outline-none focus:border-[#3F72AF] focus:ring-2 focus:ring-blue-100"
-                >
-                  {accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.type} - {account.accountNumber}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-2 text-xs text-[#9CA3AF]">
-                  Available balance: {formatCurrency(selectedAccount.balance)}
-                </p>
+                {isLoadingAccounts ? (
+                  <div className="flex items-center gap-2 rounded-xl border border-[#DBE2EF] bg-gray-50 px-4 py-3 text-xs text-gray-500">
+                    <Loader2 size={15} className="animate-spin text-[#3F72AF]" />
+                    Loading accounts...
+                  </div>
+                ) : userAccounts.length === 0 ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    No active bank accounts found. You need an active bank account to request a deposit.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedAccountNumber}
+                    onChange={(event) => setSelectedAccountNumber(event.target.value)}
+                    className="w-full rounded-xl border border-[#DBE2EF] bg-white px-4 py-3 text-sm text-[#112D4E] outline-none focus:border-[#3F72AF] focus:ring-2 focus:ring-blue-100"
+                  >
+                    {userAccounts.map((account) => (
+                      <option key={account.accountNumber} value={account.accountNumber}>
+                        {account.type} - {account.accountNumber} (৳{account.balance.toLocaleString()})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {selectedAccount && (
+                  <p className="mt-2 text-xs text-[#9CA3AF]">
+                    Available balance: {formatCurrency(selectedAccount.balance)}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -507,7 +578,7 @@ export default function CustomerDepositRequestsPage() {
                   <input
                     type="number"
                     min="100"
-                    max="1000000"
+                    max="10000000"
                     value={amount}
                     onChange={(event) => {
                       setAmount(event.target.value);
@@ -518,7 +589,7 @@ export default function CustomerDepositRequestsPage() {
                   />
                 </div>
                 <p className="mt-2 text-xs text-[#9CA3AF]">
-                  Minimum ৳100 · Maximum ৳1,000,000
+                  Minimum ৳100 · Maximum ৳10,000,000
                 </p>
               </div>
 
@@ -552,7 +623,7 @@ export default function CustomerDepositRequestsPage() {
                   </span>
                   <span className="flex items-center gap-2 text-sm font-semibold text-[#112D4E]">
                     <CalendarDays size={15} />
-                    22 Nov 2026
+                    {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
                   </span>
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-3">
@@ -580,9 +651,17 @@ export default function CustomerDepositRequestsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 rounded-xl bg-[#112D4E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1D4168]"
+                  disabled={isSubmitting || userAccounts.length === 0}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#112D4E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1D4168] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Submit Request
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Request"
+                  )}
                 </button>
               </div>
             </form>

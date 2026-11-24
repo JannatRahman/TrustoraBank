@@ -21,27 +21,22 @@ export async function requireAuth(): Promise<AuthContext> {
     throw new UnauthorizedError("Authentication required. Please sign in to continue.");
   }
 
-  // Enforce customer account status check on all protected routes
-  if (session.user.role === "customer" && session.user.status) {
-    if (session.user.status === "BLOCKED") {
-      throw new ForbiddenError(
-        "Your account has been blocked by administration for security reasons. Please contact customer support."
-      );
-    }
-    if (session.user.status === "DEACTIVATED") {
-      throw new ForbiddenError(
-        "Your account has been deactivated. Please contact customer support to reactivate your account."
-      );
-    }
+  // Enforce user account status check on all roles across all protected banking routes
+  const status = session.user.status || "ACTIVE";
+  if (status === "BLOCKED") {
+    throw new ForbiddenError(
+      "Your account has been blocked by administration for security reasons. Please contact customer support."
+    );
   }
-
-  // Enforce active status on staff and admin accounts as well
-  if (["banking-staff", "admin"].includes(session.user.role)) {
-    if (session.user.status && session.user.status !== "ACTIVE") {
-      throw new ForbiddenError(
-        `Staff account is currently ${session.user.status.toLowerCase()}. Access denied.`
-      );
-    }
+  if (status === "SUSPENDED") {
+    throw new ForbiddenError(
+      "Your account has been temporarily suspended. Please contact customer support for assistance."
+    );
+  }
+  if (status === "DEACTIVATED" || status === "INACTIVE") {
+    throw new ForbiddenError(
+      "Your account is currently inactive or deactivated. Please contact customer support to reactivate your account."
+    );
   }
 
   return session;

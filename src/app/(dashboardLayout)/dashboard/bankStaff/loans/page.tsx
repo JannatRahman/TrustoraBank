@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, useEffect, type ReactNode } from "react";
 import {
   Search,
   Eye,
@@ -16,6 +16,7 @@ import {
   MessageSquare,
   AlertCircle,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 
 type LoanStatus = "Pending Review" | "Under Review" | "Forwarded to Admin";
@@ -38,104 +39,33 @@ type LoanApplication = {
   notes: string;
 };
 
-const initialApplications: LoanApplication[] = [
-  {
-    id: "LOAN-2026-001",
-    customer: "Sarah Johnson",
-    customerId: "CUS-1001",
-    email: "sarah.johnson@example.com",
-    phone: "+1 202 555 0141",
-    loanType: "Personal Loan",
-    amount: 15000,
-    duration: 36,
-    monthlyIncome: 4500,
-    occupation: "Marketing Manager",
-    submittedDate: "2026-11-18",
-    purpose: "Home renovation and personal expenses.",
-    status: "Pending Review",
-    notes: "",
-  },
-  {
-    id: "LOAN-2026-002",
-    customer: "Michael Chen",
-    customerId: "CUS-1002",
-    email: "michael.chen@example.com",
-    phone: "+1 202 555 0182",
-    loanType: "Business Loan",
-    amount: 85000,
-    duration: 60,
-    monthlyIncome: 9200,
-    occupation: "Business Owner",
-    submittedDate: "2026-11-16",
-    purpose: "Expand an existing retail business.",
-    status: "Under Review",
-    notes: "Customer income information requires further review.",
-  },
-  {
-    id: "LOAN-2026-003",
-    customer: "Emma Williams",
-    customerId: "CUS-1003",
-    email: "emma.williams@example.com",
-    phone: "+1 202 555 0123",
-    loanType: "Education Loan",
-    amount: 22000,
-    duration: 48,
-    monthlyIncome: 3200,
-    occupation: "Teacher",
-    submittedDate: "2026-11-14",
-    purpose: "Fund postgraduate education.",
-    status: "Forwarded to Admin",
-    notes: "Customer information reviewed and forwarded.",
-  },
-  {
-    id: "LOAN-2026-004",
-    customer: "David Miller",
-    customerId: "CUS-1004",
-    email: "david.miller@example.com",
-    phone: "+1 202 555 0174",
-    loanType: "Home Loan",
-    amount: 180000,
-    duration: 240,
-    monthlyIncome: 11500,
-    occupation: "Software Engineer",
-    submittedDate: "2026-11-12",
-    purpose: "Purchase a residential property.",
-    status: "Pending Review",
-    notes: "",
-  },
-  {
-    id: "LOAN-2026-005",
-    customer: "Olivia Brown",
-    customerId: "CUS-1005",
-    email: "olivia.brown@example.com",
-    phone: "+1 202 555 0195",
-    loanType: "Personal Loan",
-    amount: 10000,
-    duration: 24,
-    monthlyIncome: 3800,
-    occupation: "Accountant",
-    submittedDate: "2026-11-10",
-    purpose: "Medical and family expenses.",
-    status: "Under Review",
-    notes: "Additional supporting information may be required.",
-  },
-  {
-    id: "LOAN-2026-006",
-    customer: "James Wilson",
-    customerId: "CUS-1006",
-    email: "james.wilson@example.com",
-    phone: "+1 202 555 0166",
-    loanType: "Business Loan",
-    amount: 50000,
-    duration: 48,
-    monthlyIncome: 7800,
-    occupation: "Entrepreneur",
-    submittedDate: "2026-11-08",
-    purpose: "Purchase equipment for business operations.",
-    status: "Forwarded to Admin",
-    notes: "Application forwarded for admin assessment.",
-  },
-];
+const initialApplications: LoanApplication[] = [];
+
+const mapBackendStatusToStaffStatus = (status: string): LoanStatus => {
+  switch (status?.toUpperCase()) {
+    case "FORWARDED_TO_ADMIN":
+    case "APPROVED":
+    case "ACTIVE":
+    case "COMPLETED":
+      return "Forwarded to Admin";
+    case "UNDER_REVIEW":
+      return "Under Review";
+    case "PENDING":
+    default:
+      return "Pending Review";
+  }
+};
+
+const mapBackendTypeToStaffType = (type: string): LoanType => {
+  switch (type?.toUpperCase()) {
+    case "HOME": return "Home Loan";
+    case "BUSINESS": return "Business Loan";
+    case "EDUCATION": return "Education Loan";
+    case "PERSONAL":
+    default:
+      return "Personal Loan";
+  }
+};
 
 const statusStyles: Record<LoanStatus, string> = {
   "Pending Review": "bg-amber-50 text-amber-700 border-amber-200",
@@ -144,9 +74,9 @@ const statusStyles: Record<LoanStatus, string> = {
 };
 
 const formatAmount = (amount: number) =>
-  new Intl.NumberFormat("en-US", {
+  new Intl.NumberFormat("en-BD", {
     style: "currency",
-    currency: "USD",
+    currency: "BDT",
     maximumFractionDigits: 0,
   }).format(amount);
 
@@ -200,13 +130,56 @@ function DetailRow({
 }
 
 export default function LoanApplicationsPage() {
-  const [applications, setApplications] = useState(initialApplications);
+  const [applications, setApplications] = useState<LoanApplication[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
   const [selectedApplication, setSelectedApplication] =
     useState<LoanApplication | null>(null);
   const [note, setNote] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [successNotice, setSuccessNotice] = useState("");
+
+  const fetchApplications = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/loans");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const mapped: LoanApplication[] = json.data.map((doc: any) => ({
+          id: doc.loanNumber || doc._id,
+          customer: doc.applicant?.split("@")[0] || doc.applicant || "Customer",
+          customerId: doc.account || "N/A",
+          email: doc.applicant || "",
+          phone: "Verified Account",
+          loanType: mapBackendTypeToStaffType(doc.type),
+          amount: doc.amount || 0,
+          duration: doc.durationMonths || 12,
+          monthlyIncome: doc.monthlyIncome || 0,
+          occupation: doc.employmentStatus || "Employed",
+          submittedDate: doc.createdAt
+            ? new Date(doc.createdAt).toISOString().slice(0, 10)
+            : new Date().toISOString().slice(0, 10),
+          purpose: doc.description || "General financing",
+          status: mapBackendStatusToStaffStatus(doc.status),
+          notes: Array.isArray(doc.staffNotes)
+            ? doc.staffNotes.map((n: any) => `${n.staff}: ${n.note}`).join("\n")
+            : "",
+        }));
+        setApplications(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to fetch staff loan applications:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchApplications();
+  }, []);
 
   const stats = useMemo(
     () => ({
@@ -243,27 +216,51 @@ export default function LoanApplicationsPage() {
   const openReview = (application: LoanApplication) => {
     setSelectedApplication(application);
     setNote(application.notes);
+    setReviewError("");
   };
 
-  const saveReview = (forward: boolean) => {
+  const saveReview = async (forward: boolean) => {
     if (!selectedApplication) return;
+    setReviewError("");
+    setIsSubmittingReview(true);
 
-    setApplications((current) =>
-      current.map((item) =>
-        item.id === selectedApplication.id
-          ? {
-              ...item,
-              notes: note,
-              status: forward
-                ? "Forwarded to Admin"
-                : "Under Review",
-            }
-          : item
-      )
-    );
+    try {
+      if (note.trim() && note.trim() !== selectedApplication.notes) {
+        const noteRes = await fetch(`/api/loans/${selectedApplication.id}/notes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ note: note.trim() }),
+        });
+        const noteJson = await noteRes.json();
+        if (!noteRes.ok || !noteJson.success) {
+          throw new Error(noteJson.error || noteJson.message || "Failed to save internal note.");
+        }
+      }
 
-    setSelectedApplication(null);
-    setNote("");
+      if (forward) {
+        const fwdRes = await fetch(`/api/loans/${selectedApplication.id}/forward`, {
+          method: "POST",
+        });
+        const fwdJson = await fwdRes.json();
+        if (!fwdRes.ok || !fwdJson.success) {
+          throw new Error(fwdJson.error || fwdJson.message || "Failed to forward loan application.");
+        }
+      }
+
+      await fetchApplications();
+      setSuccessNotice(
+        forward
+          ? `Loan ${selectedApplication.id} forwarded to Administrator.`
+          : `Review saved for loan ${selectedApplication.id}.`
+      );
+      setTimeout(() => setSuccessNotice(""), 3500);
+      setSelectedApplication(null);
+      setNote("");
+    } catch (err: any) {
+      setReviewError(err.message || "Failed to process review.");
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   return (
@@ -287,6 +284,14 @@ export default function LoanApplicationsPage() {
             Staff Review Portal
           </div>
         </div>
+
+        {/* Success notice */}
+        {successNotice && (
+          <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
+            <CheckCircle2 size={18} className="text-emerald-600" />
+            {successNotice}
+          </div>
+        )}
 
         {/* Permission notice */}
         <div className="flex gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
@@ -413,58 +418,65 @@ export default function LoanApplicationsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#DBE2EF]">
-                {filteredApplications.map((application) => (
-                  <tr key={application.id} className="transition hover:bg-[#F9F7F7]/70">
-                    <td className="px-5 py-4">
-                      <p className="text-sm font-semibold text-[#112D4E]">
-                        {application.id}
-                      </p>
-                      <p className="mt-1 text-xs text-[#6B7280]">
-                        {application.loanType}
-                      </p>
-                    </td>
-                    <td className="px-5 py-4">
-                      <p className="text-sm font-semibold text-[#112D4E]">
-                        {application.customer}
-                      </p>
-                      <p className="mt-1 text-xs text-[#6B7280]">
-                        {application.customerId}
-                      </p>
-                    </td>
-                    <td className="px-5 py-4">
-                      <p className="text-sm font-semibold text-[#112D4E]">
-                        {formatAmount(application.amount)}
-                      </p>
-                      <p className="mt-1 text-xs text-[#6B7280]">
-                        {application.duration} months
-                      </p>
-                    </td>
-                    <td className="px-5 py-4 text-sm text-[#4B5563]">
-                      {new Date(application.submittedDate).toLocaleDateString(
-                        "en-US",
-                        { month: "short", day: "numeric", year: "numeric" }
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span
-                        className={`inline-flex whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold ${statusStyles[application.status]}`}
-                      >
-                        {application.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <button
-                        onClick={() => openReview(application)}
-                        className="inline-flex items-center gap-2 rounded-lg border border-[#DBE2EF] px-3 py-2 text-sm font-semibold text-[#3F72AF] transition hover:bg-blue-50"
-                      >
-                        <Eye size={15} />
-                        Review
-                      </button>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-14 text-center">
+                      <Loader2 size={28} className="mx-auto animate-spin text-[#3F72AF]" />
+                      <p className="mt-3 text-sm font-semibold text-[#112D4E]">Loading applications...</p>
                     </td>
                   </tr>
-                ))}
-
-                {filteredApplications.length === 0 && (
+                ) : filteredApplications.length > 0 ? (
+                  filteredApplications.map((application) => (
+                    <tr key={application.id} className="transition hover:bg-[#F9F7F7]/70">
+                      <td className="px-5 py-4">
+                        <p className="text-sm font-semibold text-[#112D4E]">
+                          {application.id}
+                        </p>
+                        <p className="mt-1 text-xs text-[#6B7280]">
+                          {application.loanType}
+                        </p>
+                      </td>
+                      <td className="px-5 py-4">
+                        <p className="text-sm font-semibold text-[#112D4E]">
+                          {application.customer}
+                        </p>
+                        <p className="mt-1 text-xs text-[#6B7280]">
+                          {application.customerId}
+                        </p>
+                      </td>
+                      <td className="px-5 py-4">
+                        <p className="text-sm font-semibold text-[#112D4E]">
+                          {formatAmount(application.amount)}
+                        </p>
+                        <p className="mt-1 text-xs text-[#6B7280]">
+                          {application.duration} months
+                        </p>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-[#4B5563]">
+                        {new Date(application.submittedDate).toLocaleDateString(
+                          "en-GB",
+                          { month: "short", day: "numeric", year: "numeric" }
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`inline-flex whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold ${statusStyles[application.status]}`}
+                        >
+                          {application.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <button
+                          onClick={() => openReview(application)}
+                          className="inline-flex items-center gap-2 rounded-lg border border-[#DBE2EF] px-3 py-2 text-sm font-semibold text-[#3F72AF] transition hover:bg-blue-50"
+                        >
+                          <Eye size={15} />
+                          Review
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
                   <tr>
                     <td colSpan={6} className="px-5 py-14 text-center">
                       <FileText
@@ -590,15 +602,21 @@ export default function LoanApplicationsPage() {
                   className="w-full resize-none rounded-xl border border-[#DBE2EF] p-4 text-sm text-[#112D4E] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#3F72AF] focus:ring-2 focus:ring-[#3F72AF]/10"
                 />
                 <p className="mt-2 text-xs text-[#6B7280]">
-                  These notes are illustrative and stored only in this page's local state.
+                  Internal staff notes are stored permanently on this application.
                 </p>
+                {reviewError && (
+                  <p className="mt-3 rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-600">
+                    {reviewError}
+                  </p>
+                )}
               </section>
 
               {/* Actions */}
               <div className="flex flex-col-reverse gap-3 border-t border-[#DBE2EF] pt-5 sm:flex-row sm:justify-between">
                 <button
                   onClick={() => setSelectedApplication(null)}
-                  className="rounded-xl border border-[#DBE2EF] px-5 py-3 text-sm font-semibold text-[#4B5563] transition hover:bg-[#F9F7F7]"
+                  disabled={isSubmittingReview}
+                  className="rounded-xl border border-[#DBE2EF] px-5 py-3 text-sm font-semibold text-[#4B5563] transition hover:bg-[#F9F7F7] disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -606,16 +624,22 @@ export default function LoanApplicationsPage() {
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <button
                     onClick={() => saveReview(false)}
-                    className="rounded-xl border border-[#3F72AF] px-5 py-3 text-sm font-semibold text-[#3F72AF] transition hover:bg-blue-50"
+                    disabled={isSubmittingReview}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#3F72AF] px-5 py-3 text-sm font-semibold text-[#3F72AF] transition hover:bg-blue-50 disabled:opacity-50"
                   >
+                    {isSubmittingReview && <Loader2 size={15} className="animate-spin" />}
                     Save Review
                   </button>
                   <button
                     onClick={() => saveReview(true)}
-                    disabled={selectedApplication.status === "Forwarded to Admin"}
+                    disabled={isSubmittingReview || selectedApplication.status === "Forwarded to Admin"}
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#112D4E] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#172554] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <Send size={16} />
+                    {isSubmittingReview ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Send size={16} />
+                    )}
                     Forward to Admin
                   </button>
                 </div>

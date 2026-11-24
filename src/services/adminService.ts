@@ -37,13 +37,26 @@ export class AdminService {
 
   /**
    * Calculates comprehensive, authoritative server-side analytics from real database records.
+   * Supports optional date range filtering for transaction and loan metrics.
    */
-  static async getAnalytics() {
+  static async getAnalytics(dateRange?: { startDate?: string | Date; endDate?: string | Date }) {
     const db = await getDatabase();
     const usersCol = db.collection<DbUser>(COLLECTIONS.USER);
     const accountsCol = db.collection<DbBankAccount>(COLLECTIONS.ACCOUNTS);
     const txCol = db.collection<DbTransaction>(COLLECTIONS.TRANSACTIONS);
     const loansCol = db.collection<DbLoan>(COLLECTIONS.LOANS);
+
+    const txMatch: Record<string, unknown> = {};
+    if (dateRange?.startDate || dateRange?.endDate) {
+      const dateFilter: Record<string, unknown> = {};
+      if (dateRange.startDate) dateFilter.$gte = new Date(dateRange.startDate);
+      if (dateRange.endDate) {
+        const end = new Date(dateRange.endDate);
+        end.setHours(23, 59, 59, 999);
+        dateFilter.$lte = end;
+      }
+      txMatch.createdAt = dateFilter;
+    }
 
     const [
       totalCustomers,
@@ -60,6 +73,7 @@ export class AdminService {
       accountDistAgg,
       loanStatusAgg,
       txTypeDistAgg,
+      recentTransactions,
     ] = await Promise.all([
       // 1. Total Customers
       usersCol.countDocuments({ role: "customer" }),
@@ -76,19 +90,19 @@ export class AdminService {
       // 5. Total Completed Deposits
       txCol
         .aggregate<{ total: number }>([
-          { $match: { type: "DEPOSIT", status: "COMPLETED" } },
+          { $match: { type: "DEPOSIT", status: "COMPLETED", ...txMatch } },
           { $group: { _id: null, total: { $sum: "$amount" } } },
         ])
         .toArray(),
       // 6. Total Completed Withdrawals
       txCol
         .aggregate<{ total: number }>([
-          { $match: { type: "WITHDRAWAL", status: "COMPLETED" } },
+          { $match: { type: "WITHDRAWAL", status: "COMPLETED", ...txMatch } },
           { $group: { _id: null, total: { $sum: "$amount" } } },
         ])
         .toArray(),
       // 7. Total Completed Transactions
-      txCol.countDocuments({ status: "COMPLETED" }),
+      txCol.countDocuments({ status: "COMPLETED", ...txMatch }),
       // 8. Pending Loans
       loansCol.countDocuments({
         status: { $in: ["PENDING", "UNDER_REVIEW", "FORWARDED_TO_ADMIN"] },
@@ -109,6 +123,7 @@ export class AdminService {
             $match: {
               status: "COMPLETED",
               type: { $in: ["DEPOSIT", "WITHDRAWAL"] },
+              ...txMatch,
             },
           },
           {
@@ -134,7 +149,7 @@ export class AdminService {
         .aggregate<{ _id: string; count: number; totalBalance: number }>([
           {
             $group: {
-              _id: "$type",
+              _id: "$accountType",
               count: { $sum: 1 },
               totalBalance: { $sum: "$balance" },
             },
@@ -158,7 +173,7 @@ export class AdminService {
       // CHART 4: Transaction Type Distribution
       txCol
         .aggregate<{ _id: string; count: number; totalAmount: number }>([
-          { $match: { status: "COMPLETED" } },
+          { $match: { status: "COMPLETED", ...txMatch } },
           {
             $group: {
               _id: "$type",
@@ -167,6 +182,13 @@ export class AdminService {
             },
           },
         ])
+        .toArray(),
+
+      // 5. Recent 6 transactions across the bank
+      txCol
+        .find(txMatch)
+        .sort({ createdAt: -1 })
+        .limit(6)
         .toArray(),
     ]);
 
@@ -195,7 +217,7 @@ export class AdminService {
       charts: {
         monthlyActivity,
         accountDistribution: accountDistAgg.map((a) => ({
-          type: a._id || "OTHER",
+          type: a._id || "SAVINGS",
           count: a.count,
           totalBalance: a.totalBalance,
         })),
@@ -210,6 +232,35 @@ export class AdminService {
           totalAmount: t.totalAmount,
         })),
       },
+      recentTransactions: recentTransactions.map((tx) => {
+        const accountNum = tx.receiverAccount || tx.senderAccount || tx.initiatedBy || "N/A";
+        return {
+          id: tx.transactionId || String(tx._id),
+          customer: accountNum,
+          accountNumber: accountNum,
+          type:
+            tx.type === "DEPOSIT"
+              ? "Deposit"
+              : tx.type === "WITHDRAWAL"
+              ? "Withdrawal"
+              : "Transfer",
+          amount: tx.amount,
+          currency: "BDT",
+          date: tx.createdAt
+            ? new Date(tx.createdAt).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : "Recent",
+          status:
+            tx.status === "COMPLETED"
+              ? "Completed"
+              : tx.status === "FAILED"
+              ? "Failed"
+              : "Pending",
+        };
+      }),
     };
   }
 

@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { LayoutSideContentLeft } from "@gravity-ui/icons";
 import { Button, Drawer } from "@heroui/react";
-import { authClient } from "@/lib/auth-client";
+import { authClient, useSession } from "@/lib/auth-client";
 
 // BANKING STAFF NAVIGATION
 const staffNavItems = [
@@ -129,6 +129,8 @@ const customerNavItems = [
 
 export function StaffDashboardSidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const user = session?.user;
 
   const isAdmin = pathname.startsWith("/dashboard/admin");
   const isCustomer = pathname.startsWith("/dashboard/customer");
@@ -247,11 +249,25 @@ export function StaffDashboardSidebar() {
         Sign Out
       </button>
 
-      <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
-        <p className="text-xs font-semibold">{roleLabel}</p>
-        <p className="mt-1 text-[10px] text-[#DBE2EF]/60">
-          {roleDescription}
-        </p>
+      <div className="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+        {user?.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={user.image}
+            alt={user.name || "User Avatar"}
+            className="h-9 w-9 shrink-0 rounded-lg border border-white/20 object-cover"
+          />
+        ) : (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#3F72AF] text-sm font-bold text-white">
+            {user?.name?.charAt(0) || "U"}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-semibold text-white">{user?.name || roleLabel}</p>
+          <p className="truncate text-[10px] text-[#DBE2EF]/60">
+            {roleDescription}
+          </p>
+        </div>
       </div>
     </div>
   );

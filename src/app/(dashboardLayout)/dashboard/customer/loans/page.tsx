@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Banknote,
   BriefcaseBusiness,
@@ -21,6 +21,7 @@ import {
   Wallet,
   X,
   XCircle,
+  Loader2,
 } from "lucide-react";
 
 type LoanStatus = "Pending" | "Approved" | "Rejected";
@@ -61,124 +62,46 @@ type Loan = {
   repayments: Repayment[];
 };
 
-const initialLoans: Loan[] = [
-  {
-    id: "LON-2026-001",
-    type: "Personal Loan",
-    amount: 500000,
-    interestRate: 10.5,
-    duration: 36,
-    monthlyInstallment: 8500,
-    remainingBalance: 365000,
-    paidAmount: 135000,
-    status: "Approved",
-    applicationDate: "2026-03-12",
-    approvalDate: "2026-03-18",
-    nextDueDate: "2026-12-15",
-    purpose: "Personal expenses",
-    monthlyIncome: 85000,
-    employmentStatus: "Employed",
-    description: "Personal financing for planned expenses.",
-    repayments: [
-      {
-        installment: 1,
-        dueDate: "2026-04-15",
-        amount: 8500,
-        status: "Paid",
-        paidDate: "2026-04-14",
-      },
-      {
-        installment: 2,
-        dueDate: "2026-05-15",
-        amount: 8500,
-        status: "Paid",
-        paidDate: "2026-05-15",
-      },
-      {
-        installment: 3,
-        dueDate: "2026-06-15",
-        amount: 8500,
-        status: "Paid",
-        paidDate: "2026-06-14",
-      },
-      {
-        installment: 4,
-        dueDate: "2026-07-15",
-        amount: 8500,
-        status: "Paid",
-        paidDate: "2026-07-15",
-      },
-      {
-        installment: 5,
-        dueDate: "2026-08-15",
-        amount: 8500,
-        status: "Paid",
-        paidDate: "2026-08-14",
-      },
-      {
-        installment: 6,
-        dueDate: "2026-09-15",
-        amount: 8500,
-        status: "Paid",
-        paidDate: "2026-09-15",
-      },
-      {
-        installment: 7,
-        dueDate: "2026-10-15",
-        amount: 8500,
-        status: "Paid",
-        paidDate: "2026-10-14",
-      },
-      {
-        installment: 8,
-        dueDate: "2026-11-15",
-        amount: 8500,
-        status: "Paid",
-        paidDate: "2026-11-15",
-      },
-      {
-        installment: 9,
-        dueDate: "2026-12-15",
-        amount: 8500,
-        status: "Pending",
-      },
-    ],
-  },
-  {
-    id: "LON-2026-002",
-    type: "Business Loan",
-    amount: 1200000,
-    interestRate: 11,
-    duration: 48,
-    monthlyInstallment: 31000,
-    remainingBalance: 1200000,
-    paidAmount: 0,
-    status: "Pending",
-    applicationDate: "2026-11-18",
-    purpose: "Business expansion",
-    monthlyIncome: 150000,
-    employmentStatus: "Self-employed",
-    description: "Funding for business expansion and equipment.",
-    repayments: [],
-  },
-  {
-    id: "LON-2026-003",
-    type: "Education Loan",
-    amount: 800000,
-    interestRate: 8.5,
-    duration: 48,
-    monthlyInstallment: 0,
-    remainingBalance: 0,
-    paidAmount: 0,
-    status: "Rejected",
-    applicationDate: "2026-10-02",
-    purpose: "Higher education",
-    monthlyIncome: 45000,
-    employmentStatus: "Employed",
-    description: "Funding for higher education expenses.",
-    repayments: [],
-  },
-];
+const initialLoans: Loan[] = [];
+
+const mapFrontendTypeToBackend = (type: string): "PERSONAL" | "HOME" | "BUSINESS" | "EDUCATION" | "CAR" => {
+  switch (type) {
+    case "Home Loan": return "HOME";
+    case "Business Loan": return "BUSINESS";
+    case "Education Loan": return "EDUCATION";
+    case "Car Loan": return "CAR";
+    case "Personal Loan":
+    default:
+      return "PERSONAL";
+  }
+};
+
+const mapBackendTypeToFrontend = (type: string): LoanType => {
+  switch (type?.toUpperCase()) {
+    case "HOME": return "Home Loan";
+    case "BUSINESS": return "Business Loan";
+    case "EDUCATION": return "Education Loan";
+    case "PERSONAL":
+    default:
+      return "Personal Loan";
+  }
+};
+
+const mapBackendStatusToCustomerStatus = (status: string): LoanStatus => {
+  switch (status?.toUpperCase()) {
+    case "APPROVED":
+    case "ACTIVE":
+    case "COMPLETED":
+      return "Approved";
+    case "REJECTED":
+      return "Rejected";
+    case "PENDING":
+    case "UNDER_REVIEW":
+    case "FORWARDED_TO_ADMIN":
+    default:
+      return "Pending";
+  }
+};
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("en-BD", {
@@ -202,7 +125,14 @@ const loanIcons: Record<LoanType, React.ReactNode> = {
 };
 
 export default function CustomerLoansPage() {
-  const [loans, setLoans] = useState(initialLoans);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [isLoadingLoans, setIsLoadingLoans] = useState(true);
+  const [userAccounts, setUserAccounts] = useState<
+    { accountNumber: string; type: string; balance: number }[]
+  >([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [activeTab, setActiveTab] = useState<
     "All Loans" | "Active" | "Applications"
   >("All Loans");
@@ -216,6 +146,7 @@ export default function CustomerLoansPage() {
   const [successMessage, setSuccessMessage] = useState("");
 
   const [application, setApplication] = useState({
+    account: "",
     type: "Personal Loan" as LoanType,
     amount: "",
     duration: "36",
@@ -226,6 +157,77 @@ export default function CustomerLoansPage() {
   });
 
   const [formError, setFormError] = useState("");
+
+  const fetchLoans = async () => {
+    try {
+      setIsLoadingLoans(true);
+      const res = await fetch("/api/loans");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const mapped: Loan[] = json.data.map((item: any) => ({
+          id: item.loanNumber || item._id,
+          type: mapBackendTypeToFrontend(item.type),
+          amount: item.amount,
+          interestRate: item.interestRate || 10,
+          duration: item.durationMonths || 12,
+          monthlyInstallment: item.emi || 0,
+          remainingBalance:
+            item.remainingBalance ?? item.totalPayable ?? item.amount,
+          paidAmount:
+            (item.totalPayable ?? item.amount) -
+            (item.remainingBalance ?? item.totalPayable ?? item.amount),
+          status: mapBackendStatusToCustomerStatus(item.status),
+          applicationDate: item.createdAt
+            ? new Date(item.createdAt).toISOString().slice(0, 10)
+            : new Date().toISOString().slice(0, 10),
+          approvalDate: item.approvedAt
+            ? new Date(item.approvedAt).toISOString().slice(0, 10)
+            : undefined,
+          nextDueDate: item.nextDueDate
+            ? new Date(item.nextDueDate).toISOString().slice(0, 10)
+            : undefined,
+          purpose:
+            item.description?.split(" - ")[0] ||
+            item.description ||
+            "General financing",
+          monthlyIncome: item.monthlyIncome || 0,
+          employmentStatus: item.employmentStatus || "Employed",
+          description: item.description || "",
+          repayments: Array.isArray(item.repayments) ? item.repayments : [],
+        }));
+        setLoans(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to load customer loans:", err);
+    } finally {
+      setIsLoadingLoans(false);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      setLoadingAccounts(true);
+      const res = await fetch("/api/accounts");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setUserAccounts(json.data);
+        if (json.data.length > 0) {
+          setApplication((prev) =>
+            prev.account ? prev : { ...prev, account: json.data[0].accountNumber }
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load customer accounts:", err);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLoans();
+    fetchAccounts();
+  }, []);
 
   const activeLoans = loans.filter(
     (loan) => loan.status === "Approved"
@@ -275,9 +277,14 @@ export default function CustomerLoansPage() {
     }));
   };
 
-  const submitApplication = (event: React.FormEvent<HTMLFormElement>) => {
+  const submitApplication = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError("");
+
+    if (!application.account) {
+      setFormError("Please select an active bank account for loan disbursement.");
+      return;
+    }
 
     const amount = Number(application.amount);
     const income = Number(application.monthlyIncome);
@@ -288,8 +295,8 @@ export default function CustomerLoansPage() {
       return;
     }
 
-    if (amount < 10000 || amount > 10000000) {
-      setFormError("Loan amount must be between ৳10,000 and ৳1 crore.");
+    if (amount < 10000 || amount > 50000000) {
+      setFormError("Loan amount must be between ৳10,000 and ৳50,000,000.");
       return;
     }
 
@@ -298,42 +305,56 @@ export default function CustomerLoansPage() {
       return;
     }
 
-    if (!application.purpose.trim() || !application.description.trim()) {
-      setFormError("Please provide your loan purpose and description.");
+    if (!application.purpose.trim()) {
+      setFormError("Please provide your loan purpose.");
       return;
     }
 
-    const newLoan: Loan = {
-      id: `LON-2026-${String(loans.length + 4).padStart(3, "0")}`,
-      type: application.type,
-      amount,
-      interestRate: 10.5,
-      duration,
-      monthlyInstallment: 0,
-      remainingBalance: 0,
-      paidAmount: 0,
-      status: "Pending",
-      applicationDate: "2026-11-22",
-      purpose: application.purpose.trim(),
-      monthlyIncome: income,
-      employmentStatus: application.employmentStatus,
-      description: application.description.trim(),
-      repayments: [],
-    };
+    const fullDescription = application.description.trim()
+      ? `${application.purpose.trim()} - ${application.description.trim()}`
+      : application.purpose.trim();
 
-    setLoans((previous) => [newLoan, ...previous]);
-    setShowApplicationModal(false);
-    setApplication({
-      type: "Personal Loan",
-      amount: "",
-      duration: "36",
-      monthlyIncome: "",
-      employmentStatus: "Employed",
-      purpose: "",
-      description: "",
-    });
-    setSuccessMessage("Your loan application has been submitted.");
-    setShowSuccess(true);
+    try {
+      setIsSubmitting(true);
+      const res = await fetch("/api/loans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          account: application.account,
+          type: mapFrontendTypeToBackend(application.type),
+          amount,
+          durationMonths: duration,
+          monthlyIncome: income,
+          employmentStatus: application.employmentStatus,
+          description: fullDescription,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setFormError(data.error || data.message || "Failed to submit loan application.");
+        return;
+      }
+
+      await fetchLoans();
+      setShowApplicationModal(false);
+      setApplication({
+        account: userAccounts[0]?.accountNumber || "",
+        type: "Personal Loan",
+        amount: "",
+        duration: "36",
+        monthlyIncome: "",
+        employmentStatus: "Employed",
+        purpose: "",
+        description: "",
+      });
+      setSuccessMessage("Your loan application has been submitted successfully.");
+      setShowSuccess(true);
+    } catch (err: any) {
+      setFormError(err.message || "An unexpected network error occurred.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const openPayment = (loan: Loan) => {
@@ -709,10 +730,7 @@ export default function CustomerLoansPage() {
         <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
           <Info size={18} className="mt-0.5 shrink-0 text-[#3F72AF]" />
           <p className="text-xs leading-5 text-[#4B5563]">
-            Loan amounts, approval statuses, repayment schedules, and
-            payment actions on this page are illustrative demo data. Actual
-            loan decisions and repayments must be processed and verified by
-            the bank.
+            Loan applications, approval statuses, and repayment schedules on this page are connected to Trustora Bank&apos;s real-time financial ledger. All applications undergo official staff verification and administrative review.
           </p>
         </div>
       </div>
@@ -728,6 +746,35 @@ export default function CustomerLoansPage() {
           }}
         >
           <form onSubmit={submitApplication} className="space-y-4">
+            <div>
+              <FormLabel>Disbursement Bank Account</FormLabel>
+              {loadingAccounts ? (
+                <div className="flex items-center gap-2 rounded-xl border border-[#DBE2EF] bg-gray-50 px-4 py-3 text-xs text-[#6B7280]">
+                  <Loader2 size={15} className="animate-spin text-[#3F72AF]" />
+                  Loading your accounts...
+                </div>
+              ) : userAccounts.length === 0 ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  No active bank accounts found. You need an active bank account with Trustora Bank to receive loan disbursement.
+                </div>
+              ) : (
+                <select
+                  value={application.account}
+                  onChange={(event) =>
+                    updateApplication("account", event.target.value)
+                  }
+                  className="form-input"
+                  required
+                >
+                  {userAccounts.map((acc) => (
+                    <option key={acc.accountNumber} value={acc.accountNumber}>
+                      {acc.accountNumber} ({acc.type} - ৳{acc.balance.toLocaleString()})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
             <div>
               <FormLabel>Loan Type</FormLabel>
               <select
@@ -849,8 +896,8 @@ export default function CustomerLoansPage() {
                   size={15}
                   className="mr-1 inline text-[#3F72AF]"
                 />
-                Your application will be marked as Pending in this demo.
-                Actual approval is subject to bank verification.
+                Your application will be submitted to the Trustora Bank review board.
+                Actual approval is subject to staff verification and admin review.
               </p>
             </div>
 
@@ -864,9 +911,17 @@ export default function CustomerLoansPage() {
               </button>
               <button
                 type="submit"
-                className="flex-1 rounded-xl bg-[#112D4E] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1D4168]"
+                disabled={isSubmitting || userAccounts.length === 0}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#112D4E] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1D4168] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Submit Application
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  "Submit Application"
+                )}
               </button>
             </div>
           </form>

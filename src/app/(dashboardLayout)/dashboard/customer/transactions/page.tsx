@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -20,152 +19,41 @@ import {
   Filter,
   Receipt,
   ArrowDownToLine,
+  Loader2,
+  FileDown,
+  ChevronLeft,
+  ChevronRight,
+  AlertCircle,
 } from "lucide-react";
 
 type TransactionType =
   | "Deposit"
   | "Withdrawal"
   | "Transfer"
+  | "Loan Disbursement"
   | "Loan Repayment";
 
 type TransactionStatus = "Completed" | "Pending" | "Failed" | "Rejected";
 
-type Transaction = {
+interface Transaction {
   id: string;
   type: TransactionType;
   description: string;
   accountNumber: string;
   amount: number;
+  fee?: number;
   date: string;
   time: string;
   status: TransactionStatus;
   reference: string;
   recipient?: string;
   sender?: string;
-};
+}
 
-const initialTransactions: Transaction[] = [
-  {
-    id: "TRX-2026-00125",
-    type: "Transfer",
-    description: "Transfer to Michael Chen",
-    accountNumber: "TRS-1000-4521",
-    amount: 12000,
-    date: "2026-11-22",
-    time: "10:45 AM",
-    status: "Completed",
-    reference: "REF-TR-00125",
-    recipient: "Michael Chen",
-  },
-  {
-    id: "TRX-2026-00124",
-    type: "Deposit",
-    description: "Monthly savings deposit",
-    accountNumber: "TRS-1000-4521",
-    amount: 25000,
-    date: "2026-11-22",
-    time: "09:30 AM",
-    status: "Pending",
-    reference: "REF-DP-00124",
-  },
-  {
-    id: "TRX-2026-00123",
-    type: "Withdrawal",
-    description: "ATM cash withdrawal",
-    accountNumber: "TRS-1000-7832",
-    amount: 5000,
-    date: "2026-11-20",
-    time: "03:15 PM",
-    status: "Completed",
-    reference: "REF-WD-00123",
-  },
-  {
-    id: "TRX-2026-00122",
-    type: "Loan Repayment",
-    description: "Monthly personal loan installment",
-    accountNumber: "TRS-1000-4521",
-    amount: 8500,
-    date: "2026-11-18",
-    time: "11:20 AM",
-    status: "Completed",
-    reference: "REF-LN-00122",
-  },
-  {
-    id: "TRX-2026-00121",
-    type: "Transfer",
-    description: "Transfer to Emma Williams",
-    accountNumber: "TRS-1000-7832",
-    amount: 15000,
-    date: "2026-11-16",
-    time: "01:40 PM",
-    status: "Failed",
-    reference: "REF-TR-00121",
-    recipient: "Emma Williams",
-  },
-  {
-    id: "TRX-2026-00120",
-    type: "Deposit",
-    description: "Cash deposit",
-    accountNumber: "TRS-1000-2165",
-    amount: 80000,
-    date: "2026-11-14",
-    time: "12:10 PM",
-    status: "Completed",
-    reference: "REF-DP-00120",
-  },
-  {
-    id: "TRX-2026-00119",
-    type: "Withdrawal",
-    description: "Branch cash withdrawal",
-    accountNumber: "TRS-1000-4521",
-    amount: 10000,
-    date: "2026-11-12",
-    time: "02:05 PM",
-    status: "Completed",
-    reference: "REF-WD-00119",
-  },
-  {
-    id: "TRX-2026-00118",
-    type: "Transfer",
-    description: "Transfer to David Miller",
-    accountNumber: "TRS-1000-4521",
-    amount: 7500,
-    date: "2026-11-10",
-    time: "04:25 PM",
-    status: "Completed",
-    reference: "REF-TR-00118",
-    recipient: "David Miller",
-  },
-  {
-    id: "TRX-2026-00117",
-    type: "Loan Repayment",
-    description: "Education loan installment",
-    accountNumber: "TRS-1000-7832",
-    amount: 12000,
-    date: "2026-11-08",
-    time: "10:00 AM",
-    status: "Completed",
-    reference: "REF-LN-00117",
-  },
-  {
-    id: "TRX-2026-00116",
-    type: "Deposit",
-    description: "Online deposit request",
-    accountNumber: "TRS-1000-4521",
-    amount: 15000,
-    date: "2026-11-05",
-    time: "09:15 AM",
-    status: "Rejected",
-    reference: "REF-DP-00116",
-  },
-];
-
-const accounts = [
-  { number: "All Accounts", type: "All" },
-  { number: "TRS-1000-4521", type: "Savings" },
-  { number: "TRS-1000-7832", type: "Current" },
-  { number: "TRS-1000-2165", type: "Business" },
-];
+interface AccountOption {
+  number: string;
+  type: string;
+}
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("en-BD", {
@@ -174,15 +62,28 @@ const formatCurrency = (amount: number) =>
     maximumFractionDigits: 0,
   }).format(amount);
 
-const formatDate = (date: string) =>
-  new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+const formatDate = (dateStr: string) => {
+  try {
+    return new Date(dateStr).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+};
 
 export default function CustomerTransactionsPage() {
-  const [transactions] = useState(initialTransactions);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [accounts, setAccounts] = useState<AccountOption[]>([
+    { number: "All Accounts", type: "All" },
+  ]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState<"csv" | "pdf" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Filters & Search
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -191,83 +92,165 @@ export default function CustomerTransactionsPage() {
   const [endDate, setEndDate] = useState("");
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
 
-  const itemsPerPage = 6;
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 10;
+
+  // Fetch linked accounts for dropdown filter
+  const fetchAccounts = async () => {
+    try {
+      const res = await fetch("/api/accounts");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const mapped: AccountOption[] = [
+          { number: "All Accounts", type: "All" },
+          ...json.data.map((acc: { accountNumber: string; accountType?: string }) => ({
+            number: acc.accountNumber,
+            type: acc.accountType || "Savings",
+          })),
+        ];
+        setAccounts(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to load customer accounts:", err);
+    }
+  };
+
+  // Fetch real customer transactions
+  const fetchTransactions = async (page = 1) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams();
+      params.append("page", String(page));
+      params.append("limit", String(itemsPerPage));
+
+      if (accountFilter !== "All Accounts") {
+        params.append("accountNumber", accountFilter);
+      }
+      if (typeFilter !== "All") {
+        const typeMap: Record<string, string> = {
+          Deposit: "DEPOSIT",
+          Withdrawal: "WITHDRAWAL",
+          Transfer: "TRANSFER",
+          "Loan Repayment": "LOAN_REPAYMENT",
+          "Loan Disbursement": "LOAN_DISBURSEMENT",
+        };
+        if (typeMap[typeFilter]) params.append("type", typeMap[typeFilter]);
+      }
+      if (statusFilter !== "All") {
+        params.append("status", statusFilter.toUpperCase());
+      }
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
+
+      const res = await fetch(`/api/transactions?${params.toString()}`);
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || json.message || "Failed to load transactions.");
+      }
+
+      if (Array.isArray(json.data)) {
+        const mapped: Transaction[] = json.data.map(
+          (t: {
+            transactionId?: string;
+            id?: string;
+            type?: string;
+            amount: number;
+            fee?: number;
+            createdAt?: string;
+            senderAccount?: string;
+            receiverAccount?: string;
+            description?: string;
+            status?: string;
+          }) => {
+            const rawType = t.type || "TRANSFER";
+            const displayType: TransactionType =
+              rawType === "DEPOSIT"
+                ? "Deposit"
+                : rawType === "WITHDRAWAL"
+                ? "Withdrawal"
+                : rawType === "LOAN_REPAYMENT"
+                ? "Loan Repayment"
+                : rawType === "LOAN_DISBURSEMENT"
+                ? "Loan Disbursement"
+                : "Transfer";
+
+            const rawStatus = t.status || "COMPLETED";
+            const displayStatus: TransactionStatus =
+              rawStatus === "COMPLETED" || rawStatus === "APPROVED"
+                ? "Completed"
+                : rawStatus === "PENDING"
+                ? "Pending"
+                : rawStatus === "REJECTED"
+                ? "Rejected"
+                : "Failed";
+
+            const dt = t.createdAt ? new Date(t.createdAt) : new Date();
+
+            return {
+              id: t.transactionId || t.id || "TXN",
+              type: displayType,
+              description: t.description || `${displayType} operation`,
+              accountNumber: t.senderAccount || t.receiverAccount || "N/A",
+              amount: t.amount,
+              fee: t.fee,
+              date: dt.toISOString().slice(0, 10),
+              time: dt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+              status: displayStatus,
+              reference: t.transactionId || t.id || "N/A",
+              recipient: t.receiverAccount,
+              sender: t.senderAccount,
+            };
+          }
+        );
+        setTransactions(mapped);
+      }
+
+      if (json.pagination) {
+        setTotalPages(json.pagination.totalPages || 1);
+        setTotalCount(json.pagination.total || 0);
+        setCurrentPage(json.pagination.page || 1);
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error) setError(err.message);
+      else setError("Failed to fetch transaction records.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAccounts();
+  }, []);
+
+  useEffect(() => {
+    fetchTransactions(currentPage);
+  }, [typeFilter, statusFilter, accountFilter, startDate, endDate, currentPage]);
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter((transaction) => {
-      const query = search.toLowerCase();
-
-      const matchesSearch =
-        transaction.id.toLowerCase().includes(query) ||
-        transaction.description.toLowerCase().includes(query) ||
-        transaction.reference.toLowerCase().includes(query);
-
-      const matchesType =
-        typeFilter === "All" || transaction.type === typeFilter;
-
-      const matchesStatus =
-        statusFilter === "All" || transaction.status === statusFilter;
-
-      const matchesAccount =
-        accountFilter === "All Accounts" ||
-        transaction.accountNumber === accountFilter;
-
-      const matchesStartDate =
-        !startDate || transaction.date >= startDate;
-
-      const matchesEndDate =
-        !endDate || transaction.date <= endDate;
-
-      return (
-        matchesSearch &&
-        matchesType &&
-        matchesStatus &&
-        matchesAccount &&
-        matchesStartDate &&
-        matchesEndDate
-      );
-    });
-  }, [
-    transactions,
-    search,
-    typeFilter,
-    statusFilter,
-    accountFilter,
-    startDate,
-    endDate,
-  ]);
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredTransactions.length / itemsPerPage)
-  );
-
-  const paginatedTransactions = filteredTransactions.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+    if (!search.trim()) return transactions;
+    const query = search.toLowerCase();
+    return transactions.filter(
+      (t) =>
+        t.id.toLowerCase().includes(query) ||
+        t.description.toLowerCase().includes(query) ||
+        t.accountNumber.toLowerCase().includes(query)
+    );
+  }, [transactions, search]);
 
   const totalDeposits = transactions
-    .filter(
-      (transaction) =>
-        transaction.type === "Deposit" &&
-        transaction.status === "Completed"
-    )
-    .reduce((total, transaction) => total + transaction.amount, 0);
+    .filter((t) => t.type === "Deposit" && t.status === "Completed")
+    .reduce((total, t) => total + t.amount, 0);
 
   const totalWithdrawals = transactions
-    .filter(
-      (transaction) =>
-        transaction.type === "Withdrawal" &&
-        transaction.status === "Completed"
-    )
-    .reduce((total, transaction) => total + transaction.amount, 0);
-
-  const completedCount = transactions.filter(
-    (transaction) => transaction.status === "Completed"
-  ).length;
+    .filter((t) => t.type === "Withdrawal" && t.status === "Completed")
+    .reduce((total, t) => total + t.amount, 0);
 
   const resetFilters = () => {
     setSearch("");
@@ -279,49 +262,48 @@ export default function CustomerTransactionsPage() {
     setCurrentPage(1);
   };
 
-  const exportCSV = () => {
-    const headers = [
-      "Transaction ID",
-      "Type",
-      "Description",
-      "Account Number",
-      "Amount",
-      "Date",
-      "Time",
-      "Status",
-      "Reference",
-    ];
+  // Statement export triggered via secure API endpoint
+  const handleExport = async (format: "csv" | "pdf") => {
+    try {
+      setIsExporting(format);
+      const params = new URLSearchParams();
+      params.append("format", format);
 
-    const rows = filteredTransactions.map((transaction) => [
-      transaction.id,
-      transaction.type,
-      transaction.description,
-      transaction.accountNumber,
-      String(transaction.amount),
-      transaction.date,
-      transaction.time,
-      transaction.status,
-      transaction.reference,
-    ]);
+      if (accountFilter !== "All Accounts") {
+        params.append("accountNumber", accountFilter);
+      }
+      if (typeFilter !== "All") {
+        const typeMap: Record<string, string> = {
+          Deposit: "DEPOSIT",
+          Withdrawal: "WITHDRAWAL",
+          Transfer: "TRANSFER",
+          "Loan Repayment": "LOAN_REPAYMENT",
+          "Loan Disbursement": "LOAN_DISBURSEMENT",
+        };
+        if (typeMap[typeFilter]) params.append("type", typeMap[typeFilter]);
+      }
+      if (statusFilter !== "All") {
+        params.append("status", statusFilter.toUpperCase());
+      }
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
 
-    const csv = [headers, ...rows]
-      .map((row) =>
-        row.map((value) => `"${value.replace(/"/g, '""')}"`).join(",")
-      )
-      .join("\n");
+      const res = await fetch(`/api/transactions/statement?${params.toString()}`);
+      if (!res.ok) throw new Error("Statement generation failed.");
 
-    const blob = new Blob([csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = "trustora-transactions.csv";
-    link.click();
-
-    URL.revokeObjectURL(url);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Trustora_Statement_${Date.now()}.${format}`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      if (err instanceof Error) setError(err.message);
+      else setError("Failed to download statement.");
+    } finally {
+      setIsExporting(null);
+    }
   };
 
   return (
@@ -339,296 +321,279 @@ export default function CustomerTransactionsPage() {
             </h1>
 
             <p className="mt-2 text-sm text-[#6B7280]">
-              View, search, filter, and download your transaction records.
+              Authoritative records, filters, and verified PDF/CSV statements.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={exportCSV}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#112D4E] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1D4168]"
-          >
-            <Download size={17} />
-            Export CSV
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => handleExport("csv")}
+              disabled={isExporting !== null}
+              className="flex items-center gap-1.5 rounded-xl border border-[#DBE2EF] bg-white px-4 py-2.5 text-xs font-semibold text-[#112D4E] transition hover:bg-gray-50 disabled:opacity-50"
+            >
+              {isExporting === "csv" ? (
+                <Loader2 size={15} className="animate-spin text-[#3F72AF]" />
+              ) : (
+                <Download size={15} />
+              )}
+              Export CSV
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleExport("pdf")}
+              disabled={isExporting !== null}
+              className="flex items-center gap-1.5 rounded-xl bg-[#112D4E] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#1D4168] disabled:opacity-50"
+            >
+              {isExporting === "pdf" ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <FileDown size={15} />
+              )}
+              Download PDF Statement
+            </button>
+          </div>
         </div>
+
+        {/* Error Notification */}
+        {error && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <AlertCircle size={18} className="shrink-0 text-red-600" />
+            <span>{error}</span>
+          </div>
+        )}
 
         {/* Summary Cards */}
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
             icon={<FileText size={21} />}
-            label="Total Transactions"
-            value={String(transactions.length)}
-            description="All account activities"
+            label="Total Operations"
+            value={String(totalCount)}
+            description="Across linked accounts"
             color="blue"
           />
 
           <SummaryCard
             icon={<ArrowDownLeft size={21} />}
-            label="Total Deposits"
+            label="Current Page Deposits"
             value={formatCurrency(totalDeposits)}
-            description="Completed deposits"
+            description="Completed credits"
             color="green"
           />
 
           <SummaryCard
             icon={<ArrowUpRight size={21} />}
-            label="Total Withdrawals"
+            label="Current Page Debits"
             value={formatCurrency(totalWithdrawals)}
-            description="Completed withdrawals"
-            color="amber"
+            description="Completed debits"
+            color="purple"
           />
 
           <SummaryCard
-            icon={<CheckCircle2 size={21} />}
-            label="Completed"
-            value={String(completedCount)}
-            description="Successfully processed"
-            color="purple"
+            icon={<CreditCard size={21} />}
+            label="Active Accounts"
+            value={String(accounts.length - 1)}
+            description="Eligible for operations"
+            color="amber"
           />
         </section>
 
-        {/* Filters */}
-        <section className="rounded-2xl border border-[#DBE2EF] bg-white p-5 shadow-sm sm:p-6">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Filter size={19} className="text-[#3F72AF]" />
-              <h2 className="font-bold text-[#112D4E]">
-                Filter Transactions
-              </h2>
+        {/* Transactions Table & Filters */}
+        <section className="overflow-hidden rounded-2xl border border-[#DBE2EF] bg-white shadow-sm">
+          {/* Filter Bar */}
+          <div className="space-y-4 border-b border-[#DBE2EF] p-5 sm:p-6">
+            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <div>
+                <h2 className="font-bold text-[#112D4E]">Search & Filter</h2>
+                <p className="mt-1 text-xs text-[#9CA3AF]">
+                  Scope by date range, account, or transaction type.
+                </p>
+              </div>
+
+              {(search ||
+                typeFilter !== "All" ||
+                statusFilter !== "All" ||
+                accountFilter !== "All Accounts" ||
+                startDate ||
+                endDate) && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="text-xs font-semibold text-[#3F72AF] hover:underline"
+                >
+                  Reset All Filters
+                </button>
+              )}
             </div>
 
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="text-xs font-semibold text-[#3F72AF] hover:underline"
-            >
-              Clear Filters
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <div>
-              <label className="mb-2 block text-xs font-semibold text-[#6B7280]">
-                Search Transaction
-              </label>
-
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {/* Search */}
               <div className="relative">
                 <Search
-                  size={17}
+                  size={16}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]"
                 />
                 <input
                   type="text"
+                  placeholder="Search ID, desc..."
                   value={search}
-                  onChange={(event) => {
-                    setSearch(event.target.value);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Transaction ID, description..."
-                  className="w-full rounded-xl border border-[#DBE2EF] py-3 pl-10 pr-4 text-sm text-[#112D4E] outline-none focus:border-[#3F72AF] focus:ring-2 focus:ring-blue-100"
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-xl border border-[#DBE2EF] py-2 pl-9 pr-3 text-xs text-[#112D4E] outline-none focus:border-[#3F72AF]"
                 />
               </div>
-            </div>
 
-            <div>
-              <label className="mb-2 block text-xs font-semibold text-[#6B7280]">
-                Account
-              </label>
-
+              {/* Account Dropdown */}
               <select
                 value={accountFilter}
-                onChange={(event) => {
-                  setAccountFilter(event.target.value);
+                onChange={(e) => {
+                  setAccountFilter(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full rounded-xl border border-[#DBE2EF] bg-white px-4 py-3 text-sm text-[#112D4E] outline-none focus:border-[#3F72AF]"
+                className="rounded-xl border border-[#DBE2EF] bg-white px-3 py-2 text-xs text-[#112D4E] outline-none focus:border-[#3F72AF]"
               >
-                {accounts.map((account) => (
-                  <option key={account.number} value={account.number}>
-                    {account.number === "All Accounts"
-                      ? "All Accounts"
-                      : `${account.type} - ${account.number}`}
+                {accounts.map((acc) => (
+                  <option key={acc.number} value={acc.number}>
+                    {acc.number} {acc.type !== "All" ? `(${acc.type})` : ""}
                   </option>
                 ))}
               </select>
-            </div>
 
-            <div>
-              <label className="mb-2 block text-xs font-semibold text-[#6B7280]">
-                Transaction Type
-              </label>
-
+              {/* Type Dropdown */}
               <select
                 value={typeFilter}
-                onChange={(event) => {
-                  setTypeFilter(event.target.value);
+                onChange={(e) => {
+                  setTypeFilter(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full rounded-xl border border-[#DBE2EF] bg-white px-4 py-3 text-sm text-[#112D4E] outline-none focus:border-[#3F72AF]"
+                className="rounded-xl border border-[#DBE2EF] bg-white px-3 py-2 text-xs text-[#112D4E] outline-none focus:border-[#3F72AF]"
               >
                 <option value="All">All Types</option>
                 <option value="Deposit">Deposit</option>
                 <option value="Withdrawal">Withdrawal</option>
                 <option value="Transfer">Transfer</option>
                 <option value="Loan Repayment">Loan Repayment</option>
+                <option value="Loan Disbursement">Loan Disbursement</option>
               </select>
-            </div>
 
-            <div>
-              <label className="mb-2 block text-xs font-semibold text-[#6B7280]">
-                Status
-              </label>
-
+              {/* Status Dropdown */}
               <select
                 value={statusFilter}
-                onChange={(event) => {
-                  setStatusFilter(event.target.value);
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full rounded-xl border border-[#DBE2EF] bg-white px-4 py-3 text-sm text-[#112D4E] outline-none focus:border-[#3F72AF]"
+                className="rounded-xl border border-[#DBE2EF] bg-white px-3 py-2 text-xs text-[#112D4E] outline-none focus:border-[#3F72AF]"
               >
                 <option value="All">All Statuses</option>
                 <option value="Completed">Completed</option>
                 <option value="Pending">Pending</option>
+                <option value="Rejected">Rejected</option>
                 <option value="Failed">Failed</option>
               </select>
-            </div>
 
-            <div>
-              <label className="mb-2 block text-xs font-semibold text-[#6B7280]">
-                From Date
-              </label>
-
-              <input
-                type="date"
-                value={startDate}
-                max={endDate || undefined}
-                onChange={(event) => {
-                  setStartDate(event.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full rounded-xl border border-[#DBE2EF] bg-white px-4 py-3 text-sm text-[#112D4E] outline-none focus:border-[#3F72AF]"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-xs font-semibold text-[#6B7280]">
-                To Date
-              </label>
-
-              <input
-                type="date"
-                value={endDate}
-                min={startDate || undefined}
-                onChange={(event) => {
-                  setEndDate(event.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full rounded-xl border border-[#DBE2EF] bg-white px-4 py-3 text-sm text-[#112D4E] outline-none focus:border-[#3F72AF]"
-              />
+              {/* Date Filters */}
+              <div className="flex items-center gap-1.5 rounded-xl border border-[#DBE2EF] px-2 py-1 text-xs text-gray-500">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full bg-transparent outline-none text-[11px]"
+                  aria-label="Start Date Filter"
+                />
+                <span>-</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full bg-transparent outline-none text-[11px]"
+                  aria-label="End Date Filter"
+                />
+              </div>
             </div>
           </div>
-        </section>
 
-        {/* Transaction Table */}
-        <section className="overflow-hidden rounded-2xl border border-[#DBE2EF] bg-white shadow-sm">
-          <div className="flex flex-col justify-between gap-2 border-b border-[#DBE2EF] p-5 sm:flex-row sm:items-center sm:px-6">
-            <div>
-              <h2 className="font-bold text-[#112D4E]">
-                All Transactions
-              </h2>
-              <p className="mt-1 text-xs text-[#9CA3AF]">
-                Showing {filteredTransactions.length} matching records
-              </p>
-            </div>
-
-            <span className="text-xs text-[#9CA3AF]">
-              {filteredTransactions.length} results
-            </span>
-          </div>
-
+          {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px] text-left">
-              <thead className="bg-[#F9F7F7]">
-                <tr className="text-xs uppercase tracking-wide text-[#6B7280]">
-                  <th className="px-6 py-4 font-semibold">Transaction</th>
+            <table className="w-full min-w-[750px] text-left">
+              <thead className="bg-[#F9FAFB]">
+                <tr className="text-xs uppercase tracking-wider text-[#6B7280]">
+                  <th className="px-6 py-4 font-semibold">Transaction ID</th>
+                  <th className="px-6 py-4 font-semibold">Type</th>
+                  <th className="px-6 py-4 font-semibold">Description</th>
                   <th className="px-6 py-4 font-semibold">Account</th>
-                  <th className="px-6 py-4 font-semibold">Date & Time</th>
                   <th className="px-6 py-4 font-semibold">Amount</th>
+                  <th className="px-6 py-4 font-semibold">Date</th>
                   <th className="px-6 py-4 font-semibold">Status</th>
-                  <th className="px-6 py-4 text-right font-semibold">
-                    Action
-                  </th>
+                  <th className="px-6 py-4 font-semibold text-right">Action</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-[#F1F5F9]">
-                {paginatedTransactions.length > 0 ? (
-                  paginatedTransactions.map((transaction) => (
-                    <tr
-                      key={transaction.id}
-                      className="transition hover:bg-[#F9FAFB]"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <TransactionIcon type={transaction.type} />
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center text-xs text-gray-500">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="animate-spin text-[#3F72AF]" size={18} />
+                        <span>Loading authoritative transaction ledger...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredTransactions.length > 0 ? (
+                  filteredTransactions.map((tx) => (
+                    <tr key={tx.id} className="transition hover:bg-gray-50/70">
+                      <td className="px-6 py-4 text-xs font-semibold text-[#3F72AF]">
+                        {tx.id}
+                      </td>
 
-                          <div>
-                            <p className="text-sm font-semibold text-[#112D4E]">
-                              {transaction.type}
-                            </p>
-                            <p className="mt-1 text-xs text-[#9CA3AF]">
-                              {transaction.id}
-                            </p>
-                            <p className="mt-1 text-xs text-[#6B7280]">
-                              {transaction.description}
-                            </p>
-                          </div>
-                        </div>
+                      <td className="px-6 py-4 text-xs font-medium text-[#112D4E]">
+                        {tx.type}
+                      </td>
+
+                      <td className="px-6 py-4 text-xs text-[#6B7280]">
+                        <span className="line-clamp-1">{tx.description}</span>
+                      </td>
+
+                      <td className="px-6 py-4 text-xs font-mono text-[#112D4E]">
+                        {tx.accountNumber}
+                      </td>
+
+                      <td
+                        className={`px-6 py-4 text-xs font-bold ${
+                          tx.type === "Deposit" || tx.type === "Loan Disbursement"
+                            ? "text-emerald-600"
+                            : tx.type === "Withdrawal" || tx.type === "Loan Repayment"
+                            ? "text-rose-600"
+                            : "text-[#112D4E]"
+                        }`}
+                      >
+                        {tx.type === "Withdrawal" || tx.type === "Loan Repayment"
+                          ? "- "
+                          : "+ "}
+                        {formatCurrency(tx.amount)}
+                      </td>
+
+                      <td className="px-6 py-4 text-xs text-[#6B7280]">
+                        {formatDate(tx.date)}
                       </td>
 
                       <td className="px-6 py-4">
-                        <span className="text-xs font-medium text-[#6B7280]">
-                          {transaction.accountNumber}
-                        </span>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-[#112D4E]">
-                          {formatDate(transaction.date)}
-                        </p>
-                        <p className="mt-1 text-xs text-[#9CA3AF]">
-                          {transaction.time}
-                        </p>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <span
-                          className={`text-sm font-bold ${
-                            transaction.type === "Deposit"
-                              ? "text-emerald-600"
-                              : "text-[#112D4E]"
-                          }`}
-                        >
-                          {transaction.type === "Deposit" ? "+" : "-"}
-                          {formatCurrency(transaction.amount)}
-                        </span>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <StatusBadge status={transaction.status} />
+                        <StatusBadge status={tx.status} />
                       </td>
 
                       <td className="px-6 py-4 text-right">
                         <button
                           type="button"
-                          onClick={() =>
-                            setSelectedTransaction(transaction)
-                          }
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#DBE2EF] px-3 py-2 text-xs font-semibold text-[#3F72AF] transition hover:bg-blue-50"
+                          onClick={() => setSelectedTransaction(tx)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-[#DBE2EF] px-2.5 py-1 text-xs font-semibold text-[#3F72AF] transition hover:bg-gray-50"
                         >
-                          <Eye size={14} />
+                          <Eye size={13} />
                           Details
                         </button>
                       </td>
@@ -636,17 +601,9 @@ export default function CustomerTransactionsPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-14 text-center">
-                      <FileText
-                        size={34}
-                        className="mx-auto text-[#9CA3AF]"
-                      />
-                      <p className="mt-3 text-sm font-semibold text-[#112D4E]">
-                        No transactions found
-                      </p>
-                      <p className="mt-1 text-xs text-[#9CA3AF]">
-                        Try adjusting your filters or search terms.
-                      </p>
+                    <td colSpan={8} className="px-6 py-12 text-center text-xs text-gray-400">
+                      <Receipt size={28} className="mx-auto mb-2 text-gray-300" />
+                      No transaction records found matching your filters.
                     </td>
                   </tr>
                 )}
@@ -654,182 +611,91 @@ export default function CustomerTransactionsPage() {
             </table>
           </div>
 
-          {/* Pagination */}
-          <div className="flex flex-col items-center justify-between gap-3 border-t border-[#DBE2EF] p-4 sm:flex-row sm:px-6">
-            <p className="text-xs text-[#6B7280]">
-              Showing{" "}
-              {filteredTransactions.length === 0
-                ? 0
-                : (currentPage - 1) * itemsPerPage + 1}
-              {" - "}
-              {Math.min(
-                currentPage * itemsPerPage,
-                filteredTransactions.length
-              )}{" "}
-              of {filteredTransactions.length} transactions
-            </p>
+          {/* Pagination Controls */}
+          <div className="flex flex-col items-center justify-between gap-3 border-t border-[#DBE2EF] px-6 py-4 text-xs text-gray-500 sm:flex-row">
+            <span>
+              Showing {filteredTransactions.length} of {totalCount} records (Page {currentPage} of {totalPages})
+            </span>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
-                disabled={currentPage === 1}
-                onClick={() =>
-                  setCurrentPage((previous) => Math.max(1, previous - 1))
-                }
-                className="rounded-lg border border-[#DBE2EF] px-3 py-2 text-xs font-semibold text-[#6B7280] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={currentPage <= 1 || isLoading}
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 font-semibold text-gray-600 transition hover:bg-gray-50 disabled:opacity-40"
               >
+                <ChevronLeft size={14} />
                 Previous
               </button>
 
-              {Array.from({ length: totalPages }, (_, index) => index + 1).map(
-                (page) => (
-                  <button
-                    key={page}
-                    type="button"
-                    onClick={() => setCurrentPage(page)}
-                    className={`h-9 min-w-9 rounded-lg px-3 text-xs font-semibold transition ${
-                      currentPage === page
-                        ? "bg-[#112D4E] text-white"
-                        : "border border-[#DBE2EF] text-[#6B7280] hover:bg-gray-50"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                )
-              )}
-
               <button
                 type="button"
-                disabled={currentPage === totalPages}
-                onClick={() =>
-                  setCurrentPage((previous) =>
-                    Math.min(totalPages, previous + 1)
-                  )
-                }
-                className="rounded-lg border border-[#DBE2EF] px-3 py-2 text-xs font-semibold text-[#6B7280] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={currentPage >= totalPages || isLoading}
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 font-semibold text-gray-600 transition hover:bg-gray-50 disabled:opacity-40"
               >
                 Next
+                <ChevronRight size={14} />
               </button>
             </div>
           </div>
         </section>
 
-        <p className="pb-3 text-center text-xs text-[#9CA3AF]">
-          Trustora Bank · Customer Portal · Illustrative demo data
-        </p>
-      </div>
-
-      {/* Transaction Details Modal */}
-      {selectedTransaction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#112D4E]/50 p-4">
-          <div className="my-auto w-full max-w-lg rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#DBE2EF] p-5">
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-blue-50 p-3 text-[#3F72AF]">
-                  <Receipt size={21} />
-                </div>
+        {/* Modal: Transaction Details */}
+        {selectedTransaction && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#112D4E]/50 p-4"
+            onClick={() => setSelectedTransaction(null)}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl sm:p-7"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between border-b border-gray-100 pb-4">
                 <div>
-                  <h2 className="font-bold text-[#112D4E]">
-                    Transaction Details
-                  </h2>
-                  <p className="mt-1 text-xs text-[#9CA3AF]">
-                    Transaction receipt information
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[#3F72AF]">
+                    Transaction Statement Record
                   </p>
+                  <h3 className="mt-1 text-lg font-bold text-[#112D4E]">
+                    {selectedTransaction.id}
+                  </h3>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedTransaction(null)}
+                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                <DetailRow label="Operation Type" value={selectedTransaction.type} />
+                <DetailRow label="Associated Account" value={selectedTransaction.accountNumber} />
+                <DetailRow
+                  label="Transaction Amount"
+                  value={formatCurrency(selectedTransaction.amount)}
+                />
+                {selectedTransaction.fee !== undefined && selectedTransaction.fee > 0 && (
+                  <DetailRow label="Processing Fee" value={formatCurrency(selectedTransaction.fee)} />
+                )}
+                <DetailRow label="Posting Date" value={`${formatDate(selectedTransaction.date)} · ${selectedTransaction.time}`} />
+                <DetailRow label="Description" value={selectedTransaction.description} />
+                <DetailRow label="Status" value={selectedTransaction.status} />
               </div>
 
               <button
                 type="button"
                 onClick={() => setSelectedTransaction(null)}
-                className="rounded-lg p-2 text-[#6B7280] transition hover:bg-gray-100"
-                aria-label="Close details"
+                className="mt-6 w-full rounded-xl border border-gray-200 py-2.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
               >
-                <X size={20} />
+                Close Record
               </button>
-            </div>
-
-            <div className="p-5 sm:p-6">
-              <div className="text-center">
-                <TransactionIcon type={selectedTransaction.type} />
-
-                <p className="mt-3 text-sm font-semibold text-[#6B7280]">
-                  {selectedTransaction.type}
-                </p>
-
-                <h3 className="mt-1 text-3xl font-bold text-[#112D4E]">
-                  {selectedTransaction.type === "Deposit" ? "+" : "-"}
-                  {formatCurrency(selectedTransaction.amount)}
-                </h3>
-
-                <div className="mt-3">
-                  <StatusBadge status={selectedTransaction.status} />
-                </div>
-              </div>
-
-              <div className="my-6 border-t border-dashed border-[#DBE2EF]" />
-
-              <div className="space-y-4">
-                <DetailRow
-                  label="Transaction ID"
-                  value={selectedTransaction.id}
-                />
-                <DetailRow
-                  label="Reference Number"
-                  value={selectedTransaction.reference}
-                />
-                <DetailRow
-                  label="Transaction Type"
-                  value={selectedTransaction.type}
-                />
-                <DetailRow
-                  label="Account Number"
-                  value={selectedTransaction.accountNumber}
-                />
-                <DetailRow
-                  label="Description"
-                  value={selectedTransaction.description}
-                />
-                {selectedTransaction.recipient && (
-                  <DetailRow
-                    label="Recipient"
-                    value={selectedTransaction.recipient}
-                  />
-                )}
-                <DetailRow
-                  label="Date"
-                  value={formatDate(selectedTransaction.date)}
-                />
-                <DetailRow
-                  label="Time"
-                  value={selectedTransaction.time}
-                />
-                <DetailRow
-                  label="Amount"
-                  value={formatCurrency(selectedTransaction.amount)}
-                  strong
-                />
-                <DetailRow
-                  label="Status"
-                  value={selectedTransaction.status}
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#112D4E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1D4168]"
-              >
-                <ArrowDownToLine size={17} />
-                Print / Save Receipt
-              </button>
-
-              <p className="mt-3 text-center text-xs text-[#9CA3AF]">
-                Illustrative transaction record. Not an official bank receipt.
-              </p>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -845,13 +711,13 @@ function SummaryCard({
   label: string;
   value: string;
   description: string;
-  color: "blue" | "green" | "amber" | "purple";
+  color: "blue" | "green" | "purple" | "amber";
 }) {
   const colors = {
     blue: "bg-blue-50 text-[#3F72AF]",
     green: "bg-emerald-50 text-emerald-600",
-    amber: "bg-amber-50 text-amber-600",
     purple: "bg-purple-50 text-purple-600",
+    amber: "bg-amber-50 text-amber-600",
   };
 
   return (
@@ -859,83 +725,43 @@ function SummaryCard({
       <div className={`inline-flex rounded-xl p-3 ${colors[color]}`}>
         {icon}
       </div>
-      <p className="mt-4 text-sm text-[#6B7280]">{label}</p>
+
+      <p className="mt-4 text-xs text-[#6B7280]">{label}</p>
       <h3 className="mt-1 text-2xl font-bold text-[#112D4E]">{value}</h3>
-      <p className="mt-2 text-xs text-[#9CA3AF]">{description}</p>
-    </div>
-  );
-}
-
-function TransactionIcon({ type }: { type: TransactionType }) {
-  const styles = {
-    Deposit: "bg-emerald-50 text-emerald-600",
-    Withdrawal: "bg-amber-50 text-amber-600",
-    Transfer: "bg-blue-50 text-[#3F72AF]",
-    "Loan Repayment": "bg-purple-50 text-purple-600",
-  };
-
-  return (
-    <div
-      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${styles[type]}`}
-    >
-      {type === "Deposit" ? (
-        <ArrowDownLeft size={19} />
-      ) : type === "Withdrawal" ? (
-        <ArrowUpRight size={19} />
-      ) : type === "Transfer" ? (
-        <ArrowLeftRight size={19} />
-      ) : (
-        <CreditCard size={19} />
-      )}
+      <p className="mt-1 text-xs text-[#9CA3AF]">{description}</p>
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: TransactionStatus }) {
-  const styles = {
+  const styles: Record<TransactionStatus, string> = {
     Completed: "bg-emerald-50 text-emerald-700",
     Pending: "bg-amber-50 text-amber-700",
-    Failed: "bg-red-50 text-red-700",
     Rejected: "bg-red-50 text-red-700",
+    Failed: "bg-rose-50 text-rose-700",
   };
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${styles[status]}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${styles[status]}`}
     >
       {status === "Completed" ? (
-        <CheckCircle2 size={13} />
+        <CheckCircle2 size={12} />
       ) : status === "Pending" ? (
-        <Clock size={13} />
+        <Clock size={12} />
       ) : (
-        <XCircle size={13} />
+        <XCircle size={12} />
       )}
       {status}
     </span>
   );
 }
 
-function DetailRow({
-  label,
-  value,
-  strong = false,
-}: {
-  label: string;
-  value: string;
-  strong?: boolean;
-}) {
+function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4">
-      <span className="text-xs text-[#6B7280]">{label}</span>
-      <span
-        className={`max-w-[65%] break-all text-right text-xs ${
-          strong
-            ? "text-sm font-bold text-[#112D4E]"
-            : "font-semibold text-[#112D4E]"
-        }`}
-      >
-        {value}
-      </span>
+    <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-2.5 text-xs">
+      <span className="text-gray-500">{label}</span>
+      <span className="font-semibold text-[#112D4E] text-right">{value}</span>
     </div>
   );
 }

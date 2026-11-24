@@ -20,6 +20,7 @@ export const COLLECTIONS = {
   KYC_DOCUMENTS: "kycDocuments",
   KYC_UPLOAD_INTENTS: "kycUploadIntents",
   EMAIL_OUTBOX: "emailOutbox",
+  PIN_RECOVERIES: "pinRecoveries",
   ADMIN_GUARD: "adminGuard",
 } as const;
 
@@ -27,9 +28,19 @@ export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
 
 // User & Auth
 export type UserRole = "admin" | "banking-staff" | "customer";
-export type CustomerStatus = "ACTIVE" | "DEACTIVATED" | "BLOCKED";
+export type CustomerStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED" | "BLOCKED" | "DEACTIVATED";
 export type KycStatus = "PENDING" | "VERIFIED" | "REJECTED";
 export type KycDocumentType = "NATIONAL_ID" | "PASSPORT" | "DRIVING_LICENSE";
+
+export interface UserPreferences {
+  theme?: "light" | "dark" | "system";
+  transactionAlerts?: boolean;
+  depositUpdates?: boolean;
+  withdrawalUpdates?: boolean;
+  loanUpdates?: boolean;
+  securityAlerts?: boolean;
+  promotionalEmails?: boolean;
+}
 
 export interface DbUser {
   _id?: string;
@@ -52,6 +63,7 @@ export interface DbUser {
   image?: string | null;
   phone?: string;
   address?: string;
+  preferences?: UserPreferences;
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }
@@ -233,6 +245,18 @@ export interface DbTransactionPin {
   pinHash: string; // bcrypt hash
   failedAttempts: number;
   lockedUntil?: string | Date;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+// PIN Recovery
+export interface DbPinRecovery {
+  _id?: string;
+  user: string; // User email
+  codeHash: string; // bcrypt hash of 6-digit recovery code
+  expiresAt: string | Date;
+  attempts: number;
+  consumed: boolean;
   createdAt: string | Date;
   updatedAt: string | Date;
 }

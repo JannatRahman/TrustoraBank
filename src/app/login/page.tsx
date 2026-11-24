@@ -76,7 +76,7 @@ export default function LoginPage() {
           break;
 
         case "banking-staff":
-          dashboardPath = "/dashboard/banking-staff";
+          dashboardPath = "/dashboard/bankStaff";
           break;
 
         case "customer":

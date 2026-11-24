@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Search,
   Eye,
@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   AlertCircle,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 
 type LoanStatus = "Pending" | "Approved" | "Rejected";
@@ -52,131 +53,34 @@ type Loan = {
   repayments: Repayment[];
 };
 
-const initialLoans: Loan[] = [
-  {
-    id: "LN-2026-001",
-    customerId: "CUS-2026-001",
-    customer: "Sarah Johnson",
-    email: "sarah.johnson@email.com",
-    phone: "+880 1712-345678",
-    type: "Home Loan",
-    amount: 5000000,
-    interestRate: 9.5,
-    term: 120,
-    monthlyPayment: 64700,
-    purpose: "Purchase of a residential apartment in Dhaka.",
-    applicationDate: "2026-11-18",
-    status: "Pending",
-    branch: "Dhanmondi Branch",
-    employment: "Software Engineer",
-    income: 180000,
-    repayments: [],
-  },
-  {
-    id: "LN-2026-002",
-    customerId: "CUS-2026-002",
-    customer: "Michael Chen",
-    email: "michael.chen@email.com",
-    phone: "+880 1812-456789",
-    type: "Business Loan",
-    amount: 2500000,
-    interestRate: 10.5,
-    term: 60,
-    monthlyPayment: 53700,
-    purpose: "Expansion of an existing retail business.",
-    applicationDate: "2026-11-17",
-    status: "Pending",
-    branch: "Gulshan Branch",
-    employment: "Business Owner",
-    income: 250000,
-    repayments: [],
-  },
-  {
-    id: "LN-2026-003",
-    customerId: "CUS-2026-003",
-    customer: "Emma Williams",
-    email: "emma.williams@email.com",
-    phone: "+880 1912-567890",
-    type: "Personal Loan",
-    amount: 500000,
-    interestRate: 11,
-    term: 36,
-    monthlyPayment: 16360,
-    purpose: "Personal expenses and family support.",
-    applicationDate: "2026-11-15",
-    status: "Approved",
-    branch: "Uttara Branch",
-    employment: "Marketing Manager",
-    income: 95000,
-    repayments: [
-      { id: "RP-001", date: "2026-09-15", amount: 16360, method: "Bank Transfer", status: "Paid" },
-      { id: "RP-002", date: "2026-10-15", amount: 16360, method: "Bank Transfer", status: "Paid" },
-      { id: "RP-003", date: "2026-11-15", amount: 16360, method: "Bank Transfer", status: "Paid" },
-      { id: "RP-004", date: "2026-12-15", amount: 16360, method: "Bank Transfer", status: "Pending" },
-    ],
-  },
-  {
-    id: "LN-2026-004",
-    customerId: "CUS-2026-004",
-    customer: "David Miller",
-    email: "david.miller@email.com",
-    phone: "+880 1612-678901",
-    type: "Education Loan",
-    amount: 1200000,
-    interestRate: 8.5,
-    term: 48,
-    monthlyPayment: 29500,
-    purpose: "Higher education and university tuition fees.",
-    applicationDate: "2026-11-12",
-    status: "Rejected",
-    branch: "Banani Branch",
-    employment: "Accountant",
-    income: 65000,
-    repayments: [],
-  },
-  {
-    id: "LN-2026-005",
-    customerId: "CUS-2026-005",
-    customer: "Olivia Brown",
-    email: "olivia.brown@email.com",
-    phone: "+880 1712-789012",
-    type: "Personal Loan",
-    amount: 350000,
-    interestRate: 11.5,
-    term: 24,
-    monthlyPayment: 16400,
-    purpose: "Home renovation and personal expenses.",
-    applicationDate: "2026-11-10",
-    status: "Pending",
-    branch: "Mirpur Branch",
-    employment: "Teacher",
-    income: 55000,
-    repayments: [],
-  },
-  {
-    id: "LN-2026-006",
-    customerId: "CUS-2026-006",
-    customer: "James Wilson",
-    email: "james.wilson@email.com",
-    phone: "+880 1812-890123",
-    type: "Business Loan",
-    amount: 1800000,
-    interestRate: 10,
-    term: 60,
-    monthlyPayment: 38250,
-    purpose: "Working capital for a small manufacturing business.",
-    applicationDate: "2026-11-08",
-    status: "Approved",
-    branch: "Mohakhali Branch",
-    employment: "Business Owner",
-    income: 200000,
-    repayments: [
-      { id: "RP-005", date: "2026-09-08", amount: 38250, method: "Bank Transfer", status: "Paid" },
-      { id: "RP-006", date: "2026-10-08", amount: 38250, method: "Bank Transfer", status: "Overdue" },
-      { id: "RP-007", date: "2026-11-08", amount: 38250, method: "Bank Transfer", status: "Paid" },
-    ],
-  },
-];
+const initialLoans: Loan[] = [];
+
+const mapBackendStatusToAdminStatus = (status: string): LoanStatus => {
+  switch (status?.toUpperCase()) {
+    case "APPROVED":
+    case "ACTIVE":
+    case "COMPLETED":
+      return "Approved";
+    case "REJECTED":
+      return "Rejected";
+    case "PENDING":
+    case "UNDER_REVIEW":
+    case "FORWARDED_TO_ADMIN":
+    default:
+      return "Pending";
+  }
+};
+
+const mapBackendTypeToAdminType = (type: string): LoanType => {
+  switch (type?.toUpperCase()) {
+    case "HOME": return "Home Loan";
+    case "BUSINESS": return "Business Loan";
+    case "EDUCATION": return "Education Loan";
+    case "PERSONAL":
+    default:
+      return "Personal Loan";
+  }
+};
 
 const formatMoney = (amount: number) =>
   `৳${amount.toLocaleString("en-BD")}`;
@@ -224,7 +128,8 @@ function RepaymentBadge({ status }: { status: Repayment["status"] }) {
 }
 
 export default function AdminLoanManagementPage() {
-  const [loans, setLoans] = useState<Loan[]>(initialLoans);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -235,6 +140,48 @@ export default function AdminLoanManagementPage() {
     action: "Approved" | "Rejected";
   } | null>(null);
   const [notice, setNotice] = useState("");
+  const [errorNotice, setErrorNotice] = useState("");
+  const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
+
+  const fetchLoans = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/loans");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const mapped: Loan[] = json.data.map((item: any) => ({
+          id: item.loanNumber || item._id,
+          customerId: item.account || "N/A",
+          customer: item.applicant?.split("@")[0] || item.applicant || "Customer",
+          email: item.applicant || "",
+          phone: "Verified Account",
+          type: mapBackendTypeToAdminType(item.type),
+          amount: item.amount || 0,
+          interestRate: item.interestRate || 10,
+          term: item.durationMonths || 12,
+          monthlyPayment: item.emi || 0,
+          purpose: item.description || "General financing",
+          applicationDate: item.createdAt
+            ? new Date(item.createdAt).toISOString().slice(0, 10)
+            : new Date().toISOString().slice(0, 10),
+          status: mapBackendStatusToAdminStatus(item.status),
+          branch: "Main Branch",
+          employment: item.employmentStatus || "Employed",
+          income: item.monthlyIncome || 0,
+          repayments: Array.isArray(item.repayments) ? item.repayments : [],
+        }));
+        setLoans(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to load admin loans:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLoans();
+  }, []);
 
   const filteredLoans = useMemo(() => {
     return loans.filter((loan) => {
@@ -266,26 +213,44 @@ export default function AdminLoanManagementPage() {
 
   const showNotice = (message: string) => {
     setNotice(message);
-    window.setTimeout(() => setNotice(""), 3000);
+    window.setTimeout(() => setNotice(""), 3500);
   };
 
-  const handleDecision = () => {
+  const handleDecision = async () => {
     if (!confirmation) return;
 
     const { loanId, action } = confirmation;
+    setIsSubmittingDecision(true);
+    setErrorNotice("");
 
-    setLoans((previous) =>
-      previous.map((loan) =>
-        loan.id === loanId ? { ...loan, status: action } : loan
-      )
-    );
+    try {
+      const res = await fetch(`/api/loans/${loanId}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: action === "Approved" ? "APPROVE" : "REJECT",
+          rejectionReason: action === "Rejected" ? "Declined by loan administration." : undefined,
+        }),
+      });
 
-    if (selectedLoan?.id === loanId) {
-      setSelectedLoan({ ...selectedLoan, status: action });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || json.message || `Failed to ${action.toLowerCase()} loan.`);
+      }
+
+      await fetchLoans();
+
+      if (selectedLoan?.id === loanId) {
+        setSelectedLoan({ ...selectedLoan, status: action });
+      }
+
+      showNotice(`Loan application ${loanId} was ${action.toLowerCase()} successfully.`);
+      setConfirmation(null);
+    } catch (err: any) {
+      setErrorNotice(err.message || "Failed to process loan decision.");
+    } finally {
+      setIsSubmittingDecision(false);
     }
-
-    showNotice(`Loan application ${action.toLowerCase()} successfully.`);
-    setConfirmation(null);
   };
 
   const openDetails = (loan: Loan) => {
@@ -322,6 +287,14 @@ export default function AdminLoanManagementPage() {
           <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
             <CheckCircle2 size={18} />
             {notice}
+          </div>
+        )}
+
+        {/* Error Notice */}
+        {errorNotice && (
+          <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+            <AlertCircle size={18} />
+            {errorNotice}
           </div>
         )}
 
@@ -447,49 +420,58 @@ export default function AdminLoanManagementPage() {
               </thead>
 
               <tbody className="divide-y divide-[#DBE2EF]">
-                {filteredLoans.map((loan) => (
-                  <tr key={loan.id} className="transition hover:bg-[#F9FAFB]">
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-semibold text-[#112D4E]">{loan.id}</p>
-                      <p className="mt-1 text-xs text-[#9CA3AF]">{loan.customerId}</p>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-semibold text-[#112D4E]">{loan.customer}</p>
-                      <p className="mt-1 text-xs text-[#9CA3AF]">{loan.email}</p>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-[#4B5563]">{loan.type}</span>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-semibold text-[#112D4E]">{formatMoney(loan.amount)}</p>
-                      <p className="mt-1 text-xs text-[#9CA3AF]">{loan.interestRate}% interest</p>
-                    </td>
-
-                    <td className="px-6 py-4 text-sm text-[#4B5563]">
-                      {formatDate(loan.applicationDate)}
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <StatusBadge status={loan.status} />
-                    </td>
-
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => openDetails(loan)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-[#DBE2EF] px-3 py-2 text-xs font-semibold text-[#3F72AF] transition hover:border-[#3F72AF] hover:bg-blue-50"
-                      >
-                        <Eye size={15} />
-                        Review
-                      </button>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-14 text-center">
+                      <Loader2 size={30} className="mx-auto animate-spin text-[#3F72AF]" />
+                      <p className="mt-3 text-sm font-semibold text-[#112D4E]">
+                        Loading loan applications...
+                      </p>
                     </td>
                   </tr>
-                ))}
+                ) : filteredLoans.length > 0 ? (
+                  filteredLoans.map((loan) => (
+                    <tr key={loan.id} className="transition hover:bg-[#F9FAFB]">
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-semibold text-[#112D4E]">{loan.id}</p>
+                        <p className="mt-1 text-xs text-[#9CA3AF]">{loan.customerId}</p>
+                      </td>
 
-                {filteredLoans.length === 0 && (
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-semibold text-[#112D4E]">{loan.customer}</p>
+                        <p className="mt-1 text-xs text-[#9CA3AF]">{loan.email}</p>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-[#4B5563]">{loan.type}</span>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-semibold text-[#112D4E]">{formatMoney(loan.amount)}</p>
+                        <p className="mt-1 text-xs text-[#9CA3AF]">{loan.interestRate}% interest</p>
+                      </td>
+
+                      <td className="px-6 py-4 text-sm text-[#4B5563]">
+                        {formatDate(loan.applicationDate)}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <StatusBadge status={loan.status} />
+                      </td>
+
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => openDetails(loan)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#DBE2EF] px-3 py-2 text-xs font-semibold text-[#3F72AF] transition hover:border-[#3F72AF] hover:bg-blue-50"
+                        >
+                          <Eye size={15} />
+                          Review
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
                   <tr>
                     <td colSpan={7} className="px-6 py-14 text-center">
                       <FileText size={30} className="mx-auto text-[#9CA3AF]" />
@@ -515,7 +497,7 @@ export default function AdminLoanManagementPage() {
         </section>
 
         <p className="text-center text-xs text-[#9CA3AF]">
-          Illustrative demo data only. Loan decisions and repayment records are not saved to a database.
+          Trustora Bank Administration Portal. All loan approvals and rejections are permanently recorded in the database.
         </p>
       </div>
 
@@ -815,15 +797,22 @@ export default function AdminLoanManagementPage() {
 
             <p className="mt-2 text-center text-sm leading-relaxed text-[#6B7280]">
               {confirmation.action === "Approved"
-                ? "Are you sure you want to approve this loan application? This will update its status in this demo."
-                : "Are you sure you want to reject this loan application? This will update its status in this demo."}
+                ? "Are you sure you want to approve this loan application? This will officially record the approval in the database and advance the loan status."
+                : "Are you sure you want to reject this loan application? This will record the rejection in the database."}
             </p>
+
+            {errorNotice && (
+              <p className="mt-3 rounded-xl bg-rose-50 p-2.5 text-center text-xs font-semibold text-rose-700">
+                {errorNotice}
+              </p>
+            )}
 
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
                 onClick={() => setConfirmation(null)}
-                className="flex-1 rounded-xl border border-[#DBE2EF] px-4 py-3 text-sm font-semibold text-[#4B5563] hover:bg-[#F9F7F7]"
+                disabled={isSubmittingDecision}
+                className="flex-1 rounded-xl border border-[#DBE2EF] px-4 py-3 text-sm font-semibold text-[#4B5563] hover:bg-[#F9F7F7] disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -831,12 +820,16 @@ export default function AdminLoanManagementPage() {
               <button
                 type="button"
                 onClick={handleDecision}
-                className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-white transition ${
+                disabled={isSubmittingDecision}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition disabled:opacity-50 ${
                   confirmation.action === "Approved"
                     ? "bg-emerald-600 hover:bg-emerald-700"
                     : "bg-rose-600 hover:bg-rose-700"
                 }`}
               >
+                {isSubmittingDecision ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : null}
                 Confirm {confirmation.action}
               </button>
             </div>

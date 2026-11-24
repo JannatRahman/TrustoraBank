@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ArrowUpRight,
   Wallet,
@@ -15,6 +14,8 @@ import {
   X,
   ShieldCheck,
   Banknote,
+  Loader2,
+  Lock,
 } from "lucide-react";
 
 type WithdrawalStatus = "Pending" | "Approved" | "Rejected";
@@ -27,70 +28,16 @@ type WithdrawalRequest = {
   date: string;
   description: string;
   status: WithdrawalStatus;
+  rejectionReason?: string;
 };
 
-const accounts = [
-  {
-    id: "1",
-    accountNumber: "TRS-1000-4521",
-    type: "Savings",
-    balance: 245000,
-    status: "Active",
-  },
-  {
-    id: "2",
-    accountNumber: "TRS-1000-7832",
-    type: "Current",
-    balance: 580000,
-    status: "Active",
-  },
-  {
-    id: "3",
-    accountNumber: "TRS-1000-2165",
-    type: "Business",
-    balance: 125500,
-    status: "Active",
-  },
-];
-
-const initialRequests: WithdrawalRequest[] = [
-  {
-    id: "WDR-2026-00125",
-    accountNumber: "TRS-1000-4521",
-    accountType: "Savings",
-    amount: 10000,
-    date: "22 Nov 2026",
-    description: "Personal cash withdrawal",
-    status: "Pending",
-  },
-  {
-    id: "WDR-2026-00119",
-    accountNumber: "TRS-1000-7832",
-    accountType: "Current",
-    amount: 30000,
-    date: "19 Nov 2026",
-    description: "Business expenses",
-    status: "Approved",
-  },
-  {
-    id: "WDR-2026-00111",
-    accountNumber: "TRS-1000-4521",
-    accountType: "Savings",
-    amount: 5000,
-    date: "13 Nov 2026",
-    description: "Emergency cash",
-    status: "Rejected",
-  },
-  {
-    id: "WDR-2026-00104",
-    accountNumber: "TRS-1000-2165",
-    accountType: "Business",
-    amount: 20000,
-    date: "07 Nov 2026",
-    description: "Office expenses",
-    status: "Approved",
-  },
-];
+type CustomerAccount = {
+  id: string;
+  accountNumber: string;
+  type: string;
+  balance: number;
+  status: string;
+};
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("en-BD", {
@@ -100,9 +47,14 @@ const formatCurrency = (amount: number) =>
   }).format(amount);
 
 export default function CustomerWithdrawalRequestsPage() {
-  const [requests, setRequests] = useState(initialRequests);
-  const [accountId, setAccountId] = useState(accounts[0].id);
+  const [requests, setRequests] = useState<WithdrawalRequest[]>([]);
+  const [accounts, setAccounts] = useState<CustomerAccount[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [accountId, setAccountId] = useState("");
   const [amount, setAmount] = useState("");
+  const [pin, setPin] = useState("");
   const [description, setDescription] = useState("");
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
@@ -110,8 +62,95 @@ export default function CustomerWithdrawalRequestsPage() {
   const [showForm, setShowForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
+  const fetchRequests = async () => {
+    try {
+      const res = await fetch("/api/requests?type=WITHDRAWAL&limit=50");
+      if (!res.ok) throw new Error("Failed to load withdrawal requests");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const mapped: WithdrawalRequest[] = json.data.map(
+          (item: {
+            requestId: string;
+            account: string;
+            amount: number;
+            createdAt?: string;
+            description?: string;
+            status: string;
+            rejectionReason?: string;
+          }) => ({
+            id: item.requestId,
+            accountNumber: item.account,
+            accountType: "Account",
+            amount: item.amount,
+            date: item.createdAt
+              ? new Date(item.createdAt).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "Recent",
+            description: item.description || "Withdrawal request",
+            status:
+              item.status === "APPROVED"
+                ? "Approved"
+                : item.status === "REJECTED"
+                ? "Rejected"
+                : "Pending",
+            rejectionReason: item.rejectionReason,
+          })
+        );
+        setRequests(mapped);
+      }
+    } catch (err: unknown) {
+      console.error(err);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      const res = await fetch("/api/accounts");
+      if (!res.ok) throw new Error("Failed to fetch accounts");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const mapped: CustomerAccount[] = json.data.map(
+          (acc: {
+            _id?: string;
+            accountNumber: string;
+            accountType?: string;
+            balance: number;
+            status?: string;
+          }) => ({
+            id: acc.accountNumber,
+            accountNumber: acc.accountNumber,
+            type: acc.accountType || "Savings",
+            balance: acc.balance || 0,
+            status: acc.status || "ACTIVE",
+          })
+        );
+        setAccounts(mapped);
+        if (mapped.length > 0 && !accountId) {
+          setAccountId(mapped[0].id);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    Promise.all([fetchRequests(), fetchAccounts()]).finally(() => {
+      setIsLoading(false);
+    });
+  }, []);
+
   const selectedAccount =
-    accounts.find((account) => account.id === accountId) ?? accounts[0];
+    accounts.find((acc) => acc.id === accountId) ?? accounts[0] ?? {
+      id: "none",
+      accountNumber: "N/A",
+      type: "Savings",
+      balance: 0,
+      status: "INACTIVE",
+    };
 
   const totalPending = requests
     .filter((request) => request.status === "Pending")
@@ -135,9 +174,8 @@ export default function CustomerWithdrawalRequestsPage() {
     return matchesFilter && matchesSearch;
   });
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
     setError("");
     setSuccessMessage("");
 
@@ -163,8 +201,13 @@ export default function CustomerWithdrawalRequestsPage() {
       return;
     }
 
-    if (selectedAccount.status !== "Active") {
+    if (selectedAccount.status !== "ACTIVE" && selectedAccount.status !== "Active") {
       setError("This account is not active.");
+      return;
+    }
+
+    if (!pin || pin.length < 4 || pin.length > 6) {
+      setError("Please enter your 4-6 digit transaction PIN.");
       return;
     }
 
@@ -173,26 +216,46 @@ export default function CustomerWithdrawalRequestsPage() {
       return;
     }
 
-    const newRequest: WithdrawalRequest = {
-      id: `WDR-2026-${String(requests.length + 126).padStart(5, "0")}`,
-      accountNumber: selectedAccount.accountNumber,
-      accountType: selectedAccount.type,
-      amount: numericAmount,
-      date: "22 Nov 2026",
-      description: description.trim() || "Withdrawal request",
-      status: "Pending",
-    };
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          account: selectedAccount.accountNumber,
+          type: "WITHDRAWAL",
+          amount: numericAmount,
+          description: description.trim() || "Cash withdrawal request",
+          pin,
+        }),
+      });
 
-    setRequests((previous) => [newRequest, ...previous]);
-    setAmount("");
-    setDescription("");
-    setShowForm(false);
-    setFilter("All");
-    setSearch("");
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || data.error || "Failed to submit withdrawal request.");
+      }
 
-    setSuccessMessage(
-      `Your withdrawal request for ${formatCurrency(numericAmount)} has been submitted successfully.`
-    );
+      setAmount("");
+      setPin("");
+      setDescription("");
+      setShowForm(false);
+      setFilter("All");
+      setSearch("");
+
+      setSuccessMessage(
+        `Your withdrawal request for ${formatCurrency(numericAmount)} has been submitted successfully.`
+      );
+
+      await Promise.all([fetchRequests(), fetchAccounts()]);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -252,198 +315,184 @@ export default function CustomerWithdrawalRequestsPage() {
           </div>
         )}
 
-        {/* Summary Cards */}
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {/* Overview Cards */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <SummaryCard
-            icon={<FileText size={21} />}
-            label="Total Requests"
-            value={String(requests.length)}
-            description="All withdrawal requests"
+            icon={<Wallet size={20} />}
+            label="Total Balance"
+            value={formatCurrency(
+              accounts.reduce((acc, curr) => acc + (curr.balance || 0), 0)
+            )}
+            description="Across all your bank accounts"
             color="blue"
           />
 
           <SummaryCard
-            icon={<Clock size={21} />}
-            label="Pending Requests"
-            value={String(
-              requests.filter((request) => request.status === "Pending")
-                .length
-            )}
-            description={`${formatCurrency(totalPending)} awaiting review`}
+            icon={<Clock size={20} />}
+            label="Pending Withdrawals"
+            value={formatCurrency(totalPending)}
+            description={`${
+              requests.filter((r) => r.status === "Pending").length
+            } request(s) under review`}
             color="amber"
           />
 
           <SummaryCard
-            icon={<CheckCircle2 size={21} />}
+            icon={<CheckCircle2 size={20} />}
             label="Approved Withdrawals"
             value={formatCurrency(totalApproved)}
-            description="Total approved request value"
+            description={`${
+              requests.filter((r) => r.status === "Approved").length
+            } completed request(s)`
+            }
             color="green"
           />
 
           <SummaryCard
-            icon={<Wallet size={21} />}
-            label="Available Accounts"
-            value={String(accounts.length)}
-            description="Your active banking accounts"
+            icon={<Banknote size={20} />}
+            label="Active Accounts"
+            value={accounts.length.toString()}
+            description="Eligible for withdrawal"
             color="purple"
           />
-        </section>
+        </div>
 
-        {/* Account Overview */}
-        <section>
-          <div className="mb-4">
-            <h2 className="font-bold text-[#112D4E]">
-              Withdrawal Accounts
-            </h2>
+        {/* Account Cards */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-[#112D4E]">
+            Your Bank Accounts
+          </h2>
 
-            <p className="mt-1 text-sm text-[#6B7280]">
-              Select an account to submit a withdrawal request.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-3">
             {accounts.map((account) => (
               <div
                 key={account.id}
-                className={`rounded-2xl border bg-white p-5 shadow-sm ${
-                  account.id === accountId
-                    ? "border-[#3F72AF] ring-1 ring-[#3F72AF]/20"
-                    : "border-[#DBE2EF]"
+                onClick={() => setAccountId(account.id)}
+                className={`cursor-pointer rounded-2xl border p-5 transition ${
+                  selectedAccount.id === account.id
+                    ? "border-[#3F72AF] bg-blue-50/50 shadow-sm"
+                    : "border-[#DBE2EF] bg-white hover:border-[#3F72AF]/50"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="rounded-xl bg-blue-50 p-3 text-[#3F72AF]">
-                    <Wallet size={21} />
-                  </div>
-
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                  <span className="text-xs font-semibold text-[#3F72AF]">
+                    {account.type}
+                  </span>
+                  <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
                     {account.status}
                   </span>
                 </div>
 
-                <p className="mt-4 text-sm font-semibold text-[#112D4E]">
-                  {account.type} Account
-                </p>
-
-                <p className="mt-1 text-xs text-[#9CA3AF]">
+                <p className="mt-3 text-lg font-bold text-[#112D4E]">
                   {account.accountNumber}
                 </p>
 
-                <p className="mt-4 text-xs text-[#6B7280]">
-                  Available Balance
-                </p>
-
-                <h3 className="mt-1 text-xl font-bold text-[#112D4E]">
+                <p className="mt-1 text-sm font-semibold text-[#3F72AF]">
                   {formatCurrency(account.balance)}
-                </h3>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAccountId(account.id);
-                    setShowForm(true);
-                    setError("");
-                  }}
-                  className="mt-4 w-full rounded-lg border border-[#DBE2EF] px-3 py-2 text-sm font-semibold text-[#3F72AF] transition hover:bg-blue-50"
-                >
-                  Withdraw from this account
-                </button>
+                </p>
               </div>
             ))}
+            {accounts.length === 0 && !isLoading && (
+              <div className="col-span-3 rounded-2xl border border-dashed border-[#DBE2EF] bg-white p-6 text-center text-sm text-[#6B7280]">
+                No bank accounts found for your customer profile.
+              </div>
+            )}
           </div>
         </section>
 
-        {/* Withdrawal History */}
+        {/* Requests Table */}
         <section className="overflow-hidden rounded-2xl border border-[#DBE2EF] bg-white shadow-sm">
-          <div className="flex flex-col justify-between gap-4 border-b border-[#DBE2EF] p-5 sm:flex-row sm:items-center sm:px-6">
-            <div>
-              <h2 className="font-bold text-[#112D4E]">
-                Withdrawal Request History
-              </h2>
+          <div className="border-b border-[#DBE2EF] p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="font-bold text-[#112D4E]">
+                  Withdrawal History
+                </h2>
+                <p className="mt-1 text-xs text-[#9CA3AF]">
+                  Track the progress of your withdrawal requests.
+                </p>
+              </div>
 
-              <p className="mt-1 text-xs text-[#9CA3AF]">
-                Track all your withdrawal requests.
-              </p>
-            </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="text"
+                  placeholder="Search requests..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="rounded-xl border border-[#DBE2EF] px-3 py-2 text-sm text-[#112D4E] outline-none focus:border-[#3F72AF]"
+                />
 
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                type="text"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search request..."
-                className="rounded-lg border border-[#DBE2EF] px-3 py-2 text-sm text-[#112D4E] outline-none focus:border-[#3F72AF]"
-              />
-
-              <select
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-                className="rounded-lg border border-[#DBE2EF] bg-white px-3 py-2 text-sm text-[#112D4E] outline-none focus:border-[#3F72AF]"
-              >
-                <option value="All">All Status</option>
-                <option value="Pending">Pending</option>
-                <option value="Approved">Approved</option>
-                <option value="Rejected">Rejected</option>
-              </select>
+                <select
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  className="rounded-xl border border-[#DBE2EF] bg-white px-3 py-2 text-sm text-[#112D4E] outline-none focus:border-[#3F72AF]"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </div>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left">
+            <table className="w-full min-w-[700px] text-left">
               <thead className="bg-[#F9F7F7]">
-                <tr className="text-xs uppercase tracking-wide text-[#6B7280]">
-                  <th className="px-6 py-4 font-semibold">Request ID</th>
-                  <th className="px-6 py-4 font-semibold">Account</th>
-                  <th className="px-6 py-4 font-semibold">Request Date</th>
-                  <th className="px-6 py-4 font-semibold">Amount</th>
-                  <th className="px-6 py-4 font-semibold">Description</th>
-                  <th className="px-6 py-4 font-semibold">Status</th>
+                <tr className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">
+                  <th className="px-6 py-4">Request ID</th>
+                  <th className="px-6 py-4">Account</th>
+                  <th className="px-6 py-4">Amount</th>
+                  <th className="px-6 py-4">Date</th>
+                  <th className="px-6 py-4">Description</th>
+                  <th className="px-6 py-4">Status</th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-[#F1F5F9]">
-                {filteredRequests.length > 0 ? (
-                  filteredRequests.map((request) => (
-                    <tr
-                      key={request.id}
-                      className="transition hover:bg-[#F9FAFB]"
-                    >
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-semibold text-[#3F72AF]">
-                          {request.id}
-                        </span>
-                      </td>
+              <tbody className="divide-y divide-[#DBE2EF]">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-[#6B7280]">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="animate-spin text-[#3F72AF]" size={20} />
+                        <span>Loading withdrawal requests...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredRequests.map((request) => (
+                  <tr key={request.id} className="transition hover:bg-gray-50/70">
+                    <td className="px-6 py-4 text-sm font-semibold text-[#112D4E]">
+                      {request.id}
+                    </td>
 
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-semibold text-[#112D4E]">
-                          {request.accountType}
-                        </p>
-                        <p className="mt-1 text-xs text-[#9CA3AF]">
-                          {request.accountNumber}
-                        </p>
-                      </td>
+                    <td className="px-6 py-4 text-sm text-[#112D4E]">
+                      {request.accountNumber}
+                    </td>
 
-                      <td className="px-6 py-4 text-sm text-[#6B7280]">
-                        {request.date}
-                      </td>
+                    <td className="px-6 py-4 text-sm font-bold text-red-600">
+                      - {formatCurrency(request.amount)}
+                    </td>
 
-                      <td className="px-6 py-4 text-sm font-bold text-[#112D4E]">
-                        {formatCurrency(request.amount)}
-                      </td>
+                    <td className="px-6 py-4 text-sm text-[#6B7280]">
+                      {request.date}
+                    </td>
 
-                      <td className="max-w-[180px] px-6 py-4 text-sm text-[#6B7280]">
-                        <span className="line-clamp-2">
-                          {request.description}
-                        </span>
-                      </td>
+                    <td className="px-6 py-4 text-sm text-[#6B7280]">
+                      <div>{request.description}</div>
+                      {request.rejectionReason && (
+                        <div className="mt-1 text-xs text-red-600">
+                          Reason: {request.rejectionReason}
+                        </div>
+                      )}
+                    </td>
 
-                      <td className="px-6 py-4">
-                        <StatusBadge status={request.status} />
-                      </td>
-                    </tr>
-                  ))
-                ) : (
+                    <td className="px-6 py-4">
+                      <StatusBadge status={request.status} />
+                    </td>
+                  </tr>
+                ))}
+
+                {!isLoading && filteredRequests.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center">
                       <FileText
@@ -475,19 +524,20 @@ export default function CustomerWithdrawalRequestsPage() {
 
           <div>
             <h3 className="text-sm font-semibold text-[#112D4E]">
-              Withdrawal Approval
+              Withdrawal Approval & Security
             </h3>
 
             <p className="mt-1 text-sm leading-relaxed text-[#6B7280]">
               Your withdrawal request will remain Pending until reviewed by
               authorized bank staff or an administrator. Your account balance
-              will only be deducted after approval.
+              will only be deducted after approval. All withdrawal requests are
+              digitally authorized with your secure transaction PIN.
             </p>
           </div>
         </div>
 
         <p className="pb-3 text-center text-xs text-[#9CA3AF]">
-          Trustora Bank · Customer Portal · Illustrative demo data
+          Trustora Bank · Customer Portal · Secure Banking Operations
         </p>
       </div>
 
@@ -506,7 +556,7 @@ export default function CustomerWithdrawalRequestsPage() {
                     New Withdrawal Request
                   </h2>
                   <p className="mt-1 text-xs text-[#9CA3AF]">
-                    Enter your withdrawal details
+                    Enter your withdrawal details and verify with PIN
                   </p>
                 </div>
               </div>
@@ -538,7 +588,7 @@ export default function CustomerWithdrawalRequestsPage() {
                 >
                   {accounts.map((account) => (
                     <option key={account.id} value={account.id}>
-                      {account.type} - {account.accountNumber}
+                      {account.type} - {account.accountNumber} ({formatCurrency(account.balance)})
                     </option>
                   ))}
                 </select>
@@ -578,6 +628,36 @@ export default function CustomerWithdrawalRequestsPage() {
                 </p>
               </div>
 
+              {/* Transaction PIN */}
+              <div>
+                <label className="mb-2 flex items-center justify-between text-sm font-semibold text-[#112D4E]">
+                  <span className="flex items-center gap-1.5">
+                    <Lock size={15} className="text-[#3F72AF]" />
+                    Transaction PIN
+                  </span>
+                  <span className="text-xs font-normal text-[#9CA3AF]">
+                    4 to 6 digits
+                  </span>
+                </label>
+
+                <input
+                  type="password"
+                  maxLength={6}
+                  value={pin}
+                  onChange={(event) => {
+                    setPin(event.target.value.replace(/\D/g, ""));
+                    setError("");
+                  }}
+                  placeholder="Enter your transaction PIN"
+                  className="w-full rounded-xl border border-[#DBE2EF] px-4 py-3 text-sm tracking-widest text-[#112D4E] outline-none focus:border-[#3F72AF] focus:ring-2 focus:ring-blue-100"
+                  required
+                />
+
+                <p className="mt-2 text-xs text-[#9CA3AF]">
+                  Required to securely authorize withdrawal from your account.
+                </p>
+              </div>
+
               {/* Description */}
               <div>
                 <label className="mb-2 block text-sm font-semibold text-[#112D4E]">
@@ -588,7 +668,7 @@ export default function CustomerWithdrawalRequestsPage() {
                 </label>
 
                 <textarea
-                  rows={3}
+                  rows={2}
                   maxLength={100}
                   value={description}
                   onChange={(event) => {
@@ -608,17 +688,6 @@ export default function CustomerWithdrawalRequestsPage() {
               <div className="rounded-xl bg-[#F9F7F7] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm text-[#6B7280]">
-                    Request date
-                  </span>
-
-                  <span className="flex items-center gap-2 text-sm font-semibold text-[#112D4E]">
-                    <CalendarDays size={15} />
-                    22 Nov 2026
-                  </span>
-                </div>
-
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <span className="text-sm text-[#6B7280]">
                     Request status
                   </span>
 
@@ -637,15 +706,18 @@ export default function CustomerWithdrawalRequestsPage() {
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="flex-1 rounded-xl border border-[#DBE2EF] px-4 py-3 text-sm font-semibold text-[#6B7280] transition hover:bg-gray-50"
+                  disabled={isSubmitting}
+                  className="flex-1 rounded-xl border border-[#DBE2EF] px-4 py-3 text-sm font-semibold text-[#6B7280] transition hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="flex-1 rounded-xl bg-[#112D4E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1D4168]"
+                  disabled={isSubmitting}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#112D4E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1D4168] disabled:opacity-50"
                 >
+                  {isSubmitting && <Loader2 size={16} className="animate-spin" />}
                   Submit Request
                 </button>
               </div>

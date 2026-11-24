@@ -47,9 +47,7 @@ function Navbar() {
       ? "/dashboard/admin"
       : user?.role === "banking-staff"
         ? "/dashboard/bankStaff"
-        : user?.role === "customer"
-          ? "/dashboard/customer"
-          : null;
+        : "/dashboard/customer";
 
   // Close mobile menu after route navigation
   useEffect(() => {
@@ -260,6 +258,14 @@ function Navbar() {
               <div className="h-9 w-36 animate-pulse rounded-full bg-gray-100" />
             ) : user ? (
               <>
+                {user.image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.image}
+                    alt={user.name || "User"}
+                    className="h-8 w-8 rounded-full border border-[#DBE2EF] object-cover"
+                  />
+                )}
                 <span className="hidden max-w-32 truncate text-sm font-medium text-gray-600 2xl:block">
                   Welcome, {user.name || "User"}
                 </span>
@@ -403,14 +409,23 @@ function Navbar() {
               <div className="h-12 w-full animate-pulse rounded-xl bg-gray-100" />
             ) : user ? (
               <div className="flex flex-col gap-3">
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                    Signed in as
-                  </p>
-
-                  <p className="mt-1 truncate text-sm font-bold text-[#112D4E]">
-                    {user.name || "User"}
-                  </p>
+                <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                  {user.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.image}
+                      alt={user.name || "User"}
+                      className="h-10 w-10 shrink-0 rounded-full border border-[#DBE2EF] object-cover"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                      Signed in as
+                    </p>
+                    <p className="mt-0.5 truncate text-sm font-bold text-[#112D4E]">
+                      {user.name || "User"}
+                    </p>
+                  </div>
                 </div>
 
                 {dashboardHref && (

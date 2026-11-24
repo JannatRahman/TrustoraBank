@@ -2,15 +2,18 @@ import { connection } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { getDatabase } from "@/lib/mongodb";
-import { COLLECTIONS, type UserRole, type CustomerStatus, type DbUser } from "@/types";
+import { COLLECTIONS, type UserRole, type CustomerStatus, type DbUser, type UserPreferences } from "@/types";
 
 export interface AuthenticatedUser {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  status?: CustomerStatus;
+  status: CustomerStatus;
   image?: string | null;
+  phone?: string;
+  address?: string;
+  preferences?: UserPreferences;
 }
 
 export interface ServerSession {
@@ -92,7 +95,10 @@ export async function getServerSession(): Promise<ServerSession | null> {
         email: session.user.email,
         role: validatedRole,
         status: userStatus,
-        image: session.user.image,
+        image: dbUser?.image || session.user.image || null,
+        phone: dbUser?.phone || undefined,
+        address: dbUser?.address || undefined,
+        preferences: dbUser?.preferences || undefined,
       },
       session: {
         id: session.session.id,

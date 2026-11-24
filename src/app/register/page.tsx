@@ -68,7 +68,7 @@ export default function RegisterPage() {
         name: name.trim(),
         email: email.trim(),
         password,
-        callbackURL: "/",
+        callbackURL: "/dashboard/customer",
       });
 
       if (error) {
@@ -87,7 +87,7 @@ export default function RegisterPage() {
       setConfirmPassword("");
 
       setTimeout(() => {
-        router.push("/");
+        router.push("/dashboard/customer");
       }, 1400);
     } catch {
       setErrorMessage("An unexpected network error occurred. Please try again.");
