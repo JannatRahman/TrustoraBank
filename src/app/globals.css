@@ -2,6 +2,70 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
+/* -------------------------------------------------------------------------- */
+/* Global Cursor & Interactive Element Baseline                               */
+/* -------------------------------------------------------------------------- */
+
+/* Buttons, clickable controls, and triggers */
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  cursor: pointer;
+}
+
+/* Links and anchors */
+a,
+[role="link"] {
+  cursor: pointer;
+}
+
+/* Form selection and toggle controls */
+select,
+input[type="checkbox"],
+input[type="radio"],
+input[type="file"],
+input[type="color"],
+label[for] {
+  cursor: pointer;
+}
+
+/* Disabled controls & unavailable actions */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+[aria-disabled="true"],
+.disabled {
+  cursor: not-allowed !important;
+}
+
+/* Text inputs and editable areas */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+input[type="date"],
+input[type="datetime-local"],
+textarea {
+  cursor: text;
+}
+
+/* Interactive card & widget hover utilities */
+.clickable-card {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.clickable-card:hover {
+  transform: translateY(-1px);
+}
+
+/* Standardized form input styling */
 .form-input {
   width: 100%;
   border: 1px solid #e5e7eb;
@@ -12,6 +76,7 @@
   background-color: white;
   outline: none;
   transition: border-color 0.2s ease;
+  cursor: text;
 }
 
 .form-input:focus {
@@ -21,3 +86,9 @@
 .form-input::placeholder {
   color: #9ca3af;
 }
+
+.form-input:disabled {
+  cursor: not-allowed !important;
+  background-color: #f3f4f6;
+}
+

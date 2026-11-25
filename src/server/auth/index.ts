@@ -1,3 +1,11 @@
 export * from "./session";
-export * from "./rbac";
+export {
+  requireAuth,
+  requireRole as requireRoles,
+  requireAdmin,
+  requireStaffOrAdmin,
+  requireCustomer,
+  type AuthContext,
+} from "./rbac";
 export * from "./errors";
+

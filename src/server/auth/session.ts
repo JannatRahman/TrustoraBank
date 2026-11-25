@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { getDatabase } from "@/lib/mongodb";
 import { COLLECTIONS, type UserRole, type CustomerStatus, type DbUser, type UserPreferences } from "@/types";
+import { redirect } from "next/navigation";
 
 export interface AuthenticatedUser {
   id: string;
@@ -28,11 +29,14 @@ export interface ServerSession {
   };
 }
 
-/**
- * Helper to identify Next.js dynamic / prerendering signals.
- * In Next.js 16 with cacheComponents, these signals abort or deopt static prerendering
- * and MUST NOT be caught or converted into a 500 error or null return.
- */
+export const getUserSession = async () => {
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
+  return session?.user || null
+}
+
+
 function isNextPrerenderSignal(error: unknown): boolean {
   if (typeof error !== "object" || error === null) {
     return false;
@@ -51,15 +55,7 @@ function isNextPrerenderSignal(error: unknown): boolean {
   );
 }
 
-/**
- * Retrieves the current Better Auth session from incoming server request headers.
- * In Next.js 16 (with cacheComponents & PPR), awaiting `connection()` ensures the runtime
- * waits for an actual incoming HTTP request before reading headers or querying the database,
- * preventing hanging promise rejections during static prerendering.
- *
- * Validates the user's live database record to ensure real-time role and status enforcement.
- * Returns null if the user is unauthenticated.
- */
+
 export async function getServerSession(): Promise<ServerSession | null> {
   // Signal to Next.js 16 prerenderer that session resolution must wait for an incoming request
   await connection();
@@ -118,3 +114,11 @@ export async function getServerSession(): Promise<ServerSession | null> {
     return null;
   }
 }
+
+export const requireRole = async( role: string) => {
+  const user = await getUserSession();
+  if (!user || user.role !== role) {
+    return redirect("/Unauthorized");
+  }
+} 
+

@@ -11,6 +11,7 @@ import {
   ArrowUpRight,
   ArrowRight,
   ShieldCheck,
+  LogoGithub,
 } from "@gravity-ui/icons";
 
 const companyLinks = [
@@ -36,13 +37,13 @@ const legalLinks = [
 
 const socialLinks = [
   {
-    name: "Facebook",
-    href: "https://facebook.com",
-    icon: LogoFacebook,
+    name: "Github",
+    href: "https://github.com/JannatRahman",
+    icon: LogoGithub,
   },
   {
     name: "LinkedIn",
-    href: "https://linkedin.com",
+    href: "https://www.linkedin.com/in/jannat-amila-rahman/",
     icon: LogoLinkedin,
   },
 ];
