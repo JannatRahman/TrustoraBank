@@ -5,40 +5,13 @@ import { Link } from "@heroui/react";
 import {
   ArrowRight,
   ShieldCheck,
-  CreditCard,
   Clock,
   Lock,
 } from "@gravity-ui/icons";
 import { Landmark } from "lucide-react";
 
-const features = [
-  {
-    title: "Everyday Banking",
-    description:
-      "Manage your accounts, balances, and everyday transactions in one place.",
-    href: "/services",
-    label: "Explore services",
-    icon: CreditCard,
-  },
-  {
-    title: "Flexible Financing",
-    description:
-      "Explore financing options designed around different financial needs.",
-    href: "/loans",
-    label: "Explore loans",
-    icon: Landmark,
-  },
-  {
-    title: "Security Comes First",
-    description:
-      "Discover the security-focused features behind the Trustora experience.",
-    href: "/security",
-    label: "Our security",
-    icon: ShieldCheck,
-  },
-];
-
 export default function HomeLandingBanner() {
+
   return (
     <main className="w-full overflow-hidden bg-[#F9F7F7] text-[#112D4E]">
       <style jsx global>{`
@@ -229,59 +202,7 @@ export default function HomeLandingBanner() {
           </div>
         </div>
       </section>
-
-      {/* FEATURE SECTION */}
-      <section className="relative border-t border-[#DBE2EF] bg-white px-5 py-20 sm:px-7 lg:px-8 lg:py-24">
-        <div className="mx-auto max-w-7xl">
-          {/* Section heading */}
-          <div className="mx-auto max-w-2xl text-center">
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#3F72AF]">
-              Banking Made Simpler
-            </span>
-
-            <h2 className="mt-4 text-3xl font-bold tracking-tight text-[#112D4E] sm:text-4xl">
-              Everything you need.
-              <br className="hidden sm:block" /> Nothing you don't.
-            </h2>
-
-            <p className="mt-4 text-sm leading-7 text-[#6B7280] sm:text-base">
-              Explore the essential services that bring your everyday
-              financial activities together.
-            </p>
-          </div>
-
-          {/* Feature cards */}
-          <div className="mt-14 grid gap-5 md:grid-cols-3">
-            {features.map(({ title, description, href, label, icon: Icon }, index) => (
-              <Link
-                key={title}
-                href={href}
-                className="group flex min-h-[255px] cursor-pointer flex-col justify-between rounded-2xl border border-[#DBE2EF] bg-[#F9F7F7] p-7 text-left no-underline transition-all duration-300 hover:-translate-y-2 hover:border-[#3F72AF]/60 hover:bg-white hover:shadow-[0_20px_50px_rgba(17,45,78,0.08)] sm:p-8"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <div>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-[#3F72AF] shadow-sm transition-all duration-300 group-hover:bg-[#172554] group-hover:text-white">
-                    <Icon className="h-5 w-5" />
-                  </div>
-
-                  <h3 className="mt-7 text-lg font-bold text-[#112D4E]">
-                    {title}
-                  </h3>
-
-                  <p className="mt-3 text-sm leading-7 text-[#6B7280]">
-                    {description}
-                  </p>
-                </div>
-
-                <div className="mt-7 flex items-center gap-2 text-sm font-bold text-[#3F72AF] transition-colors group-hover:text-[#172554]">
-                  {label}
-                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
     </main>
   );
 }
+

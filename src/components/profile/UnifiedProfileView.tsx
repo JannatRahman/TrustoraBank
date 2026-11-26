@@ -17,9 +17,21 @@ import {
   Sun,
   Moon,
   Laptop,
-  KeyRound,
+  Copy,
+  Check,
+  Shield,
+  Building2,
+  UserCog,
+  Sparkles,
+  Lock,
+  BadgeCheck,
+  Award,
+  FileText,
+  Clock,
+  ArrowRight,
 } from "lucide-react";
 import PinManagementSection from "./PinManagementSection";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import type { UserRole, CustomerStatus } from "@/types";
 
 interface UserProfileData {
@@ -47,6 +59,7 @@ interface UnifiedProfileProps {
 }
 
 export default function UnifiedProfileView({ role }: UnifiedProfileProps) {
+  const { theme: currentGlobalTheme, setTheme: setGlobalTheme } = useTheme();
   const [profile, setProfile] = useState<UserProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -57,6 +70,9 @@ export default function UnifiedProfileView({ role }: UnifiedProfileProps) {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+
+  // Copy ID feedback
+  const [copiedId, setCopiedId] = useState(false);
 
   // Preferences
   const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
@@ -91,7 +107,10 @@ export default function UnifiedProfileView({ role }: UnifiedProfileProps) {
         setPhone(u.phone || "");
         setAddress(u.address || "");
         if (u.preferences) {
-          if (u.preferences.theme) setTheme(u.preferences.theme);
+          if (u.preferences.theme) {
+            setTheme(u.preferences.theme);
+            setGlobalTheme(u.preferences.theme);
+          }
           setNotifications((prev) => ({
             ...prev,
             ...u.preferences,
@@ -277,6 +296,7 @@ export default function UnifiedProfileView({ role }: UnifiedProfileProps) {
   // Save theme preference
   const selectTheme = async (newTheme: "light" | "dark" | "system") => {
     setTheme(newTheme);
+    setGlobalTheme(newTheme);
     try {
       await fetch("/api/auth/me", {
         method: "PATCH",
@@ -294,27 +314,64 @@ export default function UnifiedProfileView({ role }: UnifiedProfileProps) {
     }
   };
 
-  const portalTitle =
-    role === "admin"
-      ? "Admin Portal / Profile"
-      : role === "banking-staff"
-        ? "Staff Portal / Profile"
-        : "Customer Portal / Profile";
+  const copyIdToClipboard = () => {
+    if (!profile?.id) return;
+    navigator.clipboard.writeText(profile.id);
+    setCopiedId(true);
+    setTimeout(() => setCopiedId(false), 2000);
+  };
 
-  const roleBadge =
-    role === "admin"
-      ? "Administrator"
-      : role === "banking-staff"
-        ? "Banking Staff"
-        : "Bank Customer";
+  // Role Meta Configuration
+  const roleConfig = {
+    customer: {
+      portalTitle: "Customer Banking Portal",
+      roleBadge: "Verified Bank Customer",
+      badgeColor: "bg-blue-50 text-[#3F72AF] border-blue-200",
+      accentGrad: "from-[#112D4E] via-[#1D4168] to-[#3F72AF]",
+      tagline: "Manage your personal banking profile, financial security, and notifications.",
+      idLabel: "Customer Account ID",
+      authorityLevel: "Standard Retail Banking Access",
+      roleIcon: UserRound,
+    },
+    "banking-staff": {
+      portalTitle: "Banking Operations Portal",
+      roleBadge: "Authorized Operations Officer",
+      badgeColor: "bg-teal-50 text-teal-700 border-teal-200",
+      accentGrad: "from-[#0F243A] via-[#113C5E] to-[#1E6B7B]",
+      tagline: "Manage your banking staff credentials, operational clearance, and system preferences.",
+      idLabel: "Staff Officer Badge ID",
+      authorityLevel: "Level 2 Operational Clearance",
+      roleIcon: Building2,
+    },
+    admin: {
+      portalTitle: "Executive Administration Portal",
+      roleBadge: "System Executive Administrator",
+      badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200",
+      accentGrad: "from-[#091524] via-[#112D4E] to-[#4338CA]",
+      tagline: "Manage platform administration credentials, master governance, and security directives.",
+      idLabel: "Administrator UUID",
+      authorityLevel: "Tier 1 Full Platform Superadmin",
+      roleIcon: UserCog,
+    },
+  }[role] || {
+    portalTitle: "Digital Banking Portal",
+    roleBadge: "Account Holder",
+    badgeColor: "bg-blue-50 text-[#3F72AF] border-blue-200",
+    accentGrad: "from-[#112D4E] via-[#1D4168] to-[#3F72AF]",
+    tagline: "Manage your profile, preferences, and account security.",
+    idLabel: "User ID",
+    authorityLevel: "Standard Access",
+    roleIcon: UserRound,
+  };
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="flex items-center gap-3 text-[#3F72AF]">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-[#3F72AF] shadow-xs">
           <Loader2 className="animate-spin" size={24} />
-          <span className="text-sm font-medium">Loading profile...</span>
         </div>
+        <p className="text-sm font-medium text-[#112D4E]">Loading your profile...</p>
+        <p className="text-xs text-gray-500">Retrieving encrypted credentials from Trustora Core</p>
       </div>
     );
   }
@@ -323,62 +380,111 @@ export default function UnifiedProfileView({ role }: UnifiedProfileProps) {
   const initials = profile?.name
     ? profile.name
         .split(" ")
+        .filter(Boolean)
         .map((p) => p[0])
         .slice(0, 2)
         .join("")
         .toUpperCase()
-    : "U";
+    : "TB";
 
   return (
-    <div className="min-h-screen bg-[#F9F7F7] p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl space-y-7">
-        {/* Header */}
-        <div>
-          <p className="mb-1 text-sm font-semibold uppercase tracking-[0.15em] text-[#3F72AF]">
-            {portalTitle}
-          </p>
-          <h1 className="text-2xl font-bold text-[#112D4E] sm:text-3xl">
-            Profile & Settings
-          </h1>
-          <p className="mt-2 text-sm text-[#6B7280]">
-            Manage your personal profile, security preferences, and account settings.
-          </p>
+    <div className="min-h-screen bg-[#F8FAFD] pb-12 pt-6 sm:pb-16 sm:pt-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-8">
+        
+        {/* Top Breadcrumb & Page Title */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#3F72AF]">
+              <span>{roleConfig.portalTitle}</span>
+              <span className="text-gray-300">•</span>
+              <span className="text-gray-500">Security & Credentials</span>
+            </div>
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[#112D4E] sm:text-3xl">
+              Profile & Account Settings
+            </h1>
+            <p className="mt-1 text-xs sm:text-sm text-gray-500">
+              {roleConfig.tagline}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-1 text-xs font-semibold text-emerald-700 shadow-xs">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              Status: {profile?.status || "ACTIVE"}
+            </span>
+          </div>
         </div>
 
-        {/* Feedback Alerts */}
+        {/* Feedback Banners */}
         {successMessage && (
-          <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            <CheckCircle2 size={18} className="shrink-0 text-emerald-600" />
-            <span>{successMessage}</span>
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4 text-xs sm:text-sm text-emerald-800 shadow-xs transition animate-in fade-in slide-in-from-top-1">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 size={18} className="shrink-0 text-emerald-600" />
+              <span className="font-medium">{successMessage}</span>
+            </div>
+            <button
+              type="button"
+              onClick={clearMessages}
+              className="text-emerald-700 hover:text-emerald-900 text-xs font-semibold cursor-pointer"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 
         {errorMessage && (
-          <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            <AlertCircle size={18} className="shrink-0 text-red-600" />
-            <span>{errorMessage}</span>
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50/90 p-4 text-xs sm:text-sm text-rose-800 shadow-xs transition animate-in fade-in slide-in-from-top-1">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle size={18} className="shrink-0 text-rose-600" />
+              <span className="font-medium">{errorMessage}</span>
+            </div>
+            <button
+              type="button"
+              onClick={clearMessages}
+              className="text-rose-700 hover:text-rose-900 text-xs font-semibold cursor-pointer"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 
-        {/* Profile Card & Avatar */}
-        <section className="overflow-hidden rounded-2xl border border-[#DBE2EF] bg-white shadow-sm">
-          <div className="h-28 bg-gradient-to-r from-[#112D4E] via-[#1D4168] to-[#3F72AF]" />
+        {/* Hero Profile Banner Card */}
+        <section className="relative overflow-hidden rounded-3xl border border-[#DBE2EF]/80 bg-white shadow-xs">
+          {/* Header Gradient Backdrop */}
+          <div className={`h-36 sm:h-44 w-full bg-gradient-to-r ${roleConfig.accentGrad} relative`}>
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
+            <div className="absolute top-4 right-4 hidden sm:flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 text-xs font-medium text-white shadow-xs">
+              <ShieldCheck size={14} className="text-emerald-300" />
+              <span>Trustora Secure Session Verified</span>
+            </div>
+          </div>
 
-          <div className="px-5 pb-6 sm:px-7">
-            <div className="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div className="flex items-end gap-4">
-                {/* Avatar container */}
-                <div className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-[#DBE2EF] text-3xl font-bold text-[#112D4E] shadow-sm">
-                  {currentImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={currentImage}
-                      alt={profile?.name || "User Avatar"}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span>{initials}</span>
-                  )}
+          <div className="px-5 pb-6 sm:px-8 sm:pb-8">
+            <div className="-mt-16 sm:-mt-20 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+              
+              {/* Avatar + Main Details */}
+              <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 text-center sm:text-left">
+                {/* Avatar with Camera badge */}
+                <div className="relative group shrink-0">
+                  <div className="relative flex h-28 w-28 sm:h-32 sm:w-32 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-gradient-to-br from-[#112D4E] to-[#3F72AF] text-3xl font-extrabold text-white shadow-lg ring-1 ring-black/5">
+                    {currentImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={currentImage}
+                        alt={profile?.name || "User Avatar"}
+                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <span className="tracking-wider">{initials}</span>
+                    )}
+
+                    {/* Pending upload overlay */}
+                    {pendingFile && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white backdrop-blur-[2px]">
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 bg-[#3F72AF] rounded-md">Preview</span>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Hidden file input */}
                   <input
@@ -394,93 +500,128 @@ export default function UnifiedProfileView({ role }: UnifiedProfileProps) {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     aria-label="Upload profile photo"
-                    title="Upload profile photo"
+                    title="Upload profile photo (JPEG, PNG, WebP up to 2MB)"
                     disabled={isUploadingAvatar}
-                    className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-[#3F72AF] text-white shadow-md transition hover:bg-[#112D4E]"
+                    className="absolute -bottom-1 -right-1 flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border-2 border-white bg-[#3F72AF] text-white shadow-md transition duration-200 hover:bg-[#112D4E] hover:scale-105"
                   >
-                    <Camera size={14} />
+                    <Camera size={16} />
                   </button>
                 </div>
 
-                <div className="pb-1">
-                  <h2 className="text-xl font-bold text-[#112D4E]">
-                    {profile?.name}
-                  </h2>
-                  <p className="mt-0.5 text-sm text-[#6B7280]">
+                {/* Identity Info */}
+                <div className="space-y-1.5 pb-1">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                    <h2 className="text-xl sm:text-2xl font-bold text-[#112D4E]">
+                      {profile?.name || "Valued User"}
+                    </h2>
+                    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${roleConfig.badgeColor}`}>
+                      <BadgeCheck size={12} />
+                      {roleConfig.roleBadge}
+                    </span>
+                  </div>
+
+                  <p className="text-xs sm:text-sm text-gray-500 font-medium">
                     {profile?.email}
                   </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold text-[#3F72AF]">
-                      {roleBadge}
-                    </span>
-                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
-                      <ShieldCheck size={12} className="mr-1 inline" />
-                      Status: {profile?.status || "ACTIVE"}
+
+                  {/* Identifier & Authority Badge */}
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1 text-xs text-gray-500">
+                    <div className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 border border-gray-200/80 px-2.5 py-1 font-mono text-[11px]">
+                      <span className="text-gray-400">{roleConfig.idLabel}:</span>
+                      <span className="font-semibold text-gray-700">{profile?.id?.slice(0, 12)}...</span>
+                      <button
+                        type="button"
+                        onClick={copyIdToClipboard}
+                        className="ml-1 text-gray-400 hover:text-[#3F72AF] cursor-pointer"
+                        title="Copy full identifier"
+                      >
+                        {copiedId ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                      </button>
+                    </div>
+
+                    <span className="hidden sm:inline-block text-gray-300">•</span>
+                    <span className="text-[11px] font-medium text-gray-500">
+                      {roleConfig.authorityLevel}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Avatar action buttons (Save preview or Remove) */}
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Action Buttons for Avatar */}
+              <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 pt-2 sm:pt-0">
                 {pendingFile ? (
-                  <>
+                  <div className="flex items-center gap-2 p-1.5 bg-blue-50/80 rounded-2xl border border-blue-200">
                     <button
                       type="button"
                       onClick={handleUploadAvatar}
                       disabled={isUploadingAvatar}
-                      className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#3F72AF] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#112D4E]"
+                      className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#3F72AF] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#112D4E] disabled:opacity-50"
                     >
                       {isUploadingAvatar ? (
                         <Loader2 className="animate-spin" size={14} />
                       ) : (
                         <Save size={14} />
                       )}
-                      Save Picture
+                      Save Avatar
                     </button>
                     <button
                       type="button"
                       onClick={handleCancelAvatar}
                       disabled={isUploadingAvatar}
-                      className="cursor-pointer rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                      className="cursor-pointer rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-100"
                     >
-                      Cancel
+                      Discard
                     </button>
-                  </>
+                  </div>
                 ) : (
-                  profile?.image && (
+                  <>
                     <button
                       type="button"
-                      onClick={handleRemoveAvatar}
-                      disabled={isUploadingAvatar}
-                      className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#DBE2EF] bg-white px-3.5 py-2 text-xs font-semibold text-[#112D4E] shadow-xs transition hover:bg-gray-50"
                     >
-                      <Trash2 size={13} />
-                      Remove Picture
+                      <Camera size={14} className="text-[#3F72AF]" />
+                      Update Picture
                     </button>
-                  )
+
+                    {profile?.image && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveAvatar}
+                        disabled={isUploadingAvatar}
+                        className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/50 px-3 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-100/60"
+                        title="Remove uploaded picture"
+                      >
+                        <Trash2 size={13} />
+                        Remove
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
           </div>
         </section>
 
-        {/* Two Column Layout */}
-        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
-          {/* Main Column: Personal Info Form */}
-          <div className="space-y-6 xl:col-span-2">
-            <section className="rounded-2xl border border-[#DBE2EF] bg-white p-5 shadow-sm sm:p-6">
-              <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        {/* 2-Column Responsive Content Grid */}
+        <div className="grid grid-cols-1 items-start gap-8 xl:grid-cols-3">
+          
+          {/* Main 2-Span Column: Personal Info & Role-Specific Sections */}
+          <div className="space-y-8 xl:col-span-2">
+            
+            {/* 1. Personal Information Form */}
+            <section className="rounded-3xl border border-[#DBE2EF]/80 bg-white p-6 sm:p-7 shadow-xs">
+              <div className="flex flex-col justify-between gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-blue-50 p-3 text-[#3F72AF]">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-[#3F72AF] shadow-xs">
                     <UserRound size={20} />
                   </div>
                   <div>
-                    <h2 className="font-bold text-[#112D4E]">
+                    <h2 className="text-base font-bold text-[#112D4E]">
                       Personal Information
                     </h2>
-                    <p className="mt-0.5 text-xs text-[#9CA3AF]">
-                      Update your contact details and authoritative profile
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      Authoritative legal identity and verified contact channels
                     </p>
                   </div>
                 </div>
@@ -492,9 +633,9 @@ export default function UnifiedProfileView({ role }: UnifiedProfileProps) {
                       clearMessages();
                       setIsEditing(true);
                     }}
-                    className="cursor-pointer rounded-xl border border-[#DBE2EF] px-4 py-2 text-xs font-semibold text-[#3F72AF] transition hover:bg-blue-50"
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#112D4E] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1D4168]"
                   >
-                    Edit Profile
+                    Edit Information
                   </button>
                 ) : (
                   <button
@@ -505,55 +646,63 @@ export default function UnifiedProfileView({ role }: UnifiedProfileProps) {
                       setPhone(profile?.phone || "");
                       setAddress(profile?.address || "");
                     }}
-                    className="cursor-pointer rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
+                    className="cursor-pointer rounded-xl border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
                   >
                     Cancel
                   </button>
                 )}
               </div>
 
-              <form onSubmit={handleSaveProfile} className="space-y-5">
+              <form onSubmit={handleSaveProfile} className="mt-6 space-y-6">
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                  
                   {/* Full Name */}
-                  <div>
-                    <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-[#112D4E]">
-                      <UserRound size={14} className="text-[#3F72AF]" />
-                      Full Name
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-semibold text-[#112D4E]">
+                      <UserRound size={13} className="text-[#3F72AF]" />
+                      Legal Full Name
                     </label>
                     <input
                       type="text"
                       disabled={!isEditing}
                       value={name}
                       onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. John Doe"
                       className={`w-full rounded-xl border px-3.5 py-2.5 text-sm transition outline-none ${
                         isEditing
                           ? "border-[#3F72AF] bg-white text-[#112D4E] focus:ring-2 focus:ring-[#3F72AF]/20"
-                          : "border-gray-200 bg-gray-50 text-gray-600"
+                          : "border-gray-200 bg-gray-50 text-gray-700 cursor-not-allowed"
                       }`}
                     />
+                    <p className="text-[11px] text-gray-400">Must match government-issued identification</p>
                   </div>
 
-                  {/* Registered Email (read only) */}
-                  <div>
-                    <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-[#112D4E]">
-                      <Mail size={14} className="text-[#3F72AF]" />
-                      Account Email
+                  {/* Registered Email (read-only) */}
+                  <div className="space-y-1.5">
+                    <label className="flex items-center justify-between text-xs font-semibold text-[#112D4E]">
+                      <span className="flex items-center gap-1.5">
+                        <Mail size={13} className="text-[#3F72AF]" />
+                        Registered Email Address
+                      </span>
+                      <span className="flex items-center gap-1 text-[10px] text-gray-400 font-normal">
+                        <Lock size={10} /> Read-only
+                      </span>
                     </label>
                     <input
                       type="email"
                       disabled
                       value={profile?.email || ""}
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-500 cursor-not-allowed"
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50/80 px-3.5 py-2.5 text-sm font-medium text-gray-500 cursor-not-allowed"
                     />
-                    <p className="mt-1 text-[11px] text-gray-400">
-                      Primary sign-in identifier (read-only)
+                    <p className="text-[11px] text-gray-400">
+                      Primary login identifier (protected by security policy)
                     </p>
                   </div>
 
                   {/* Phone */}
-                  <div>
-                    <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-[#112D4E]">
-                      <Phone size={14} className="text-[#3F72AF]" />
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-semibold text-[#112D4E]">
+                      <Phone size={13} className="text-[#3F72AF]" />
                       Phone Number
                     </label>
                     <input
@@ -565,16 +714,17 @@ export default function UnifiedProfileView({ role }: UnifiedProfileProps) {
                       className={`w-full rounded-xl border px-3.5 py-2.5 text-sm transition outline-none ${
                         isEditing
                           ? "border-[#3F72AF] bg-white text-[#112D4E] focus:ring-2 focus:ring-[#3F72AF]/20"
-                          : "border-gray-200 bg-gray-50 text-gray-600"
+                          : "border-gray-200 bg-gray-50 text-gray-700 cursor-not-allowed"
                       }`}
                     />
+                    <p className="text-[11px] text-gray-400">Used for transactional notices & security verification</p>
                   </div>
 
                   {/* Address */}
-                  <div>
-                    <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-[#112D4E]">
-                      <MapPin size={14} className="text-[#3F72AF]" />
-                      Residential Address
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-semibold text-[#112D4E]">
+                      <MapPin size={13} className="text-[#3F72AF]" />
+                      {role === "customer" ? "Residential Address" : "Registered Office / Address"}
                     </label>
                     <input
                       type="text"
@@ -585,24 +735,37 @@ export default function UnifiedProfileView({ role }: UnifiedProfileProps) {
                       className={`w-full rounded-xl border px-3.5 py-2.5 text-sm transition outline-none ${
                         isEditing
                           ? "border-[#3F72AF] bg-white text-[#112D4E] focus:ring-2 focus:ring-[#3F72AF]/20"
-                          : "border-gray-200 bg-gray-50 text-gray-600"
+                          : "border-gray-200 bg-gray-50 text-gray-700 cursor-not-allowed"
                       }`}
                     />
+                    <p className="text-[11px] text-gray-400">Official statement mailing & billing address</p>
                   </div>
                 </div>
 
-                {/* Save button */}
+                {/* Save button toolbar */}
                 {isEditing && (
-                  <div className="flex justify-end pt-2">
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditing(false);
+                        setName(profile?.name || "");
+                        setPhone(profile?.phone || "");
+                        setAddress(profile?.address || "");
+                      }}
+                      className="cursor-pointer rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
+                    >
+                      Discard Changes
+                    </button>
                     <button
                       type="submit"
                       disabled={isSaving}
-                      className="flex cursor-pointer items-center gap-2 rounded-xl bg-[#112D4E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1D4168]"
+                      className="flex cursor-pointer items-center gap-2 rounded-xl bg-[#112D4E] px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1D4168] disabled:opacity-50"
                     >
                       {isSaving ? (
-                        <Loader2 className="animate-spin" size={16} />
+                        <Loader2 className="animate-spin" size={14} />
                       ) : (
-                        <Save size={16} />
+                        <Save size={14} />
                       )}
                       Save Changes
                     </button>
@@ -611,65 +774,217 @@ export default function UnifiedProfileView({ role }: UnifiedProfileProps) {
               </form>
             </section>
 
-            {/* Transaction PIN Management for Customer */}
+            {/* 2. ROLE-SPECIFIC PANELS */}
+
+            {/* Customer: Transaction PIN Security */}
             {role === "customer" && <PinManagementSection />}
 
-            {/* Notification Preferences */}
-            <section className="rounded-2xl border border-[#DBE2EF] bg-white p-5 shadow-sm sm:p-6">
-              <div className="mb-5 flex items-center gap-3">
-                <div className="rounded-xl bg-purple-50 p-3 text-purple-600">
+            {/* Banking Staff: Operational Authority & Governance */}
+            {role === "banking-staff" && (
+              <section className="rounded-3xl border border-teal-200/80 bg-gradient-to-br from-white to-teal-50/20 p-6 sm:p-7 shadow-xs">
+                <div className="flex items-center gap-3 border-b border-teal-100 pb-5">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-50 text-teal-700 shadow-xs">
+                    <Building2 size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-[#112D4E]">
+                      Banking Staff Authority & Clearance
+                    </h2>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      Operational assignments, compliance boundaries, and authorized workflows
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-teal-100 bg-white p-4 shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-medium text-teal-700">
+                      <ShieldCheck size={16} />
+                      <span>Staff Clearance</span>
+                    </div>
+                    <p className="mt-2 text-sm font-bold text-[#112D4E]">Level 2 Verification</p>
+                    <p className="mt-1 text-[11px] text-gray-500">Deposit & Withdrawal Queue Approval</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-teal-100 bg-white p-4 shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-medium text-teal-700">
+                      <FileText size={16} />
+                      <span>Loan Processing</span>
+                    </div>
+                    <p className="mt-2 text-sm font-bold text-[#112D4E]">Review & Forward</p>
+                    <p className="mt-1 text-[11px] text-gray-500">Escalate credit checks to Admin</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-teal-100 bg-white p-4 shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-medium text-teal-700">
+                      <Award size={16} />
+                      <span>Branch Operations</span>
+                    </div>
+                    <p className="mt-2 text-sm font-bold text-[#112D4E]">Trustora Central Operations</p>
+                    <p className="mt-1 text-[11px] text-gray-500">Active Workstation Assigned</p>
+                  </div>
+                </div>
+
+                {/* Staff Invariants */}
+                <div className="mt-5 rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                  <h4 className="text-xs font-bold text-[#112D4E]">Operational Compliance Invariants</h4>
+                  <ul className="mt-2.5 space-y-2 text-xs text-gray-600">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-teal-600 shrink-0" />
+                      <span><strong>Self-Review Restriction:</strong> Staff members are strictly prohibited from approving their own financial requests.</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-teal-600 shrink-0" />
+                      <span><strong>Dual-Control Integrity:</strong> High-value transactions and credit requests require multi-stage admin endorsement.</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-teal-600 shrink-0" />
+                      <span><strong>Audit Logging:</strong> Every request processing decision is immutably logged with timestamp and officer ID.</span>
+                    </li>
+                  </ul>
+                </div>
+              </section>
+            )}
+
+            {/* Admin: Executive Governance & Platform Invariants */}
+            {role === "admin" && (
+              <section className="rounded-3xl border border-indigo-200/80 bg-gradient-to-br from-white to-indigo-50/20 p-6 sm:p-7 shadow-xs">
+                <div className="flex items-center gap-3 border-b border-indigo-100 pb-5">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700 shadow-xs">
+                    <UserCog size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-[#112D4E]">
+                      Executive Platform Governance
+                    </h2>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      Root privileges, ledger auditing, and systemic risk controls
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-indigo-100 bg-white p-4 shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-medium text-indigo-700">
+                      <Shield size={16} />
+                      <span>Administrative Scope</span>
+                    </div>
+                    <p className="mt-2 text-sm font-bold text-[#112D4E]">Platform Superadmin</p>
+                    <p className="mt-1 text-[11px] text-gray-500">Full read/write policy execution</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-indigo-100 bg-white p-4 shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-medium text-indigo-700">
+                      <Sparkles size={16} />
+                      <span>Credit Authority</span>
+                    </div>
+                    <p className="mt-2 text-sm font-bold text-[#112D4E]">Final Loan Approvals</p>
+                    <p className="mt-1 text-[11px] text-gray-500">Disbursement & ledger commitments</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-indigo-100 bg-white p-4 shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-medium text-indigo-700">
+                      <Lock size={16} />
+                      <span>Security Guard</span>
+                    </div>
+                    <p className="mt-2 text-sm font-bold text-[#112D4E]">Elevated Protection</p>
+                    <p className="mt-1 text-[11px] text-gray-500">Session isolation active</p>
+                  </div>
+                </div>
+
+                {/* Admin Safeguards */}
+                <div className="mt-5 rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                  <h4 className="text-xs font-bold text-[#112D4E]">Platform Governance Invariants</h4>
+                  <ul className="mt-2.5 space-y-2 text-xs text-gray-600">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-indigo-600 shrink-0" />
+                      <span><strong>Immutable Ledger:</strong> All balance updates execute with strict transactional consistency and database ACID compliance.</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-indigo-600 shrink-0" />
+                      <span><strong>Role-Based Access Enforcement:</strong> Route-level proxy and API middleware enforce strict session claims.</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-indigo-600 shrink-0" />
+                      <span><strong>Financial Integrity:</strong> Negative balance prevention and double-entry reconciliation running continuously.</span>
+                    </li>
+                  </ul>
+                </div>
+              </section>
+            )}
+
+            {/* 3. Communication & Notification Matrix */}
+            <section className="rounded-3xl border border-[#DBE2EF]/80 bg-white p-6 sm:p-7 shadow-xs">
+              <div className="flex items-center gap-3 border-b border-gray-100 pb-5">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 shadow-xs">
                   <Bell size={20} />
                 </div>
                 <div>
-                  <h2 className="font-bold text-[#112D4E]">
-                    Communication Preferences
+                  <h2 className="text-base font-bold text-[#112D4E]">
+                    Notification & Alert Preferences
                   </h2>
-                  <p className="mt-0.5 text-xs text-[#9CA3AF]">
-                    Choose which notifications you receive
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    Control which real-time notices and email advisories are delivered to you
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-3.5">
+              <div className="mt-6 space-y-3">
                 {[
                   {
                     key: "transactionAlerts" as const,
-                    title: "Transaction Alerts",
-                    desc: "Real-time updates on transfers, debits, and credits",
+                    title: "Financial Transaction Alerts",
+                    desc: "Real-time updates whenever debits, credits, or transfers occur",
+                    badge: "Instant",
                   },
                   {
                     key: "depositUpdates" as const,
-                    title: "Deposit Updates",
-                    desc: "Notifications when deposits are reviewed and credited",
+                    title: "Deposit Review Updates",
+                    desc: "Notifications when cash deposits are inspected, verified, and credited",
+                    badge: "Operations",
                   },
                   {
                     key: "withdrawalUpdates" as const,
-                    title: "Withdrawal Updates",
-                    desc: "Notifications on withdrawal approval and processing",
+                    title: "Withdrawal Settlement Updates",
+                    desc: "Alerts when payout requests pass staff review and reach settlement",
+                    badge: "Operations",
                   },
                   {
                     key: "loanUpdates" as const,
-                    title: "Loan Updates",
-                    desc: "Status alerts on loan applications and installments",
+                    title: "Loan Processing & Approvals",
+                    desc: "Status updates across loan applications, review notes, and disbursements",
+                    badge: "Credit",
                   },
                   {
                     key: "securityAlerts" as const,
-                    title: "Security Alerts",
-                    desc: "Immediate notices for password changes and new device logins",
+                    title: "Security & Login Notices",
+                    desc: "Immediate security alerts for new device logins, password or PIN modifications",
+                    badge: "Critical",
+                  },
+                  {
+                    key: "promotionalEmails" as const,
+                    title: "Financial Insights & Product News",
+                    desc: "Periodic updates on Trustora Bank savings rates, new features, and services",
+                    badge: "Optional",
                   },
                 ].map((item) => (
                   <div
                     key={item.key}
-                    className="flex items-center justify-between rounded-xl border border-gray-100 p-3.5 transition hover:bg-gray-50"
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-gray-100 p-4 transition hover:bg-gray-50/70"
                   >
-                    <div>
-                      <p className="text-sm font-semibold text-[#112D4E]">
-                        {item.title}
-                      </p>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs sm:text-sm font-semibold text-[#112D4E]">
+                          {item.title}
+                        </span>
+                        <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
+                          {item.badge}
+                        </span>
+                      </div>
                       <p className="text-xs text-gray-500">{item.desc}</p>
                     </div>
 
-                    <label className="relative inline-flex cursor-pointer items-center">
+                    <label className="relative inline-flex cursor-pointer items-center shrink-0">
                       <input
                         type="checkbox"
                         checked={notifications[item.key]}
@@ -684,72 +999,115 @@ export default function UnifiedProfileView({ role }: UnifiedProfileProps) {
             </section>
           </div>
 
-          {/* Side Column: Theme & Account Status */}
-          <div className="space-y-6">
+          {/* Right Column: Theme & Credentials Summary */}
+          <div className="space-y-8">
+            
             {/* Theme Preference */}
-            <section className="rounded-2xl border border-[#DBE2EF] bg-white p-5 shadow-sm sm:p-6">
-              <h3 className="font-bold text-[#112D4E]">Theme Preference</h3>
+            <section className="rounded-3xl border border-[#DBE2EF]/80 bg-white p-6 shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <Sun size={18} className="text-[#3F72AF]" />
+                <h3 className="font-bold text-[#112D4E] text-sm">Interface Appearance</h3>
+              </div>
               <p className="mt-1 text-xs text-gray-500">
-                Choose your preferred interface appearance
+                Choose how Trustora Bank renders on your device
               </p>
 
-              <div className="mt-4 grid grid-cols-3 gap-2">
+              <div className="mt-4 grid grid-cols-3 gap-2.5">
                 {[
                   { id: "light" as const, label: "Light", icon: Sun },
                   { id: "dark" as const, label: "Dark", icon: Moon },
                   { id: "system" as const, label: "System", icon: Laptop },
                 ].map((item) => {
                   const Icon = item.icon;
-                  const isSelected = theme === item.id;
+                  const isSelected = (currentGlobalTheme || theme) === item.id;
                   return (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => selectTheme(item.id)}
-                      className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 text-xs font-semibold transition ${
+                      className={`flex cursor-pointer flex-col items-center gap-2 rounded-2xl border p-3.5 text-xs font-semibold transition ${
                         isSelected
-                          ? "border-[#3F72AF] bg-blue-50 text-[#3F72AF]"
+                          ? "border-[#3F72AF] bg-blue-50/70 text-[#3F72AF] shadow-xs"
                           : "border-gray-200 text-gray-600 hover:bg-gray-50"
                       }`}
                     >
                       <Icon size={18} />
-                      {item.label}
+                      <span>{item.label}</span>
                     </button>
                   );
                 })}
               </div>
             </section>
 
-            {/* Account Security Information */}
-            <section className="rounded-2xl border border-[#DBE2EF] bg-white p-5 shadow-sm sm:p-6">
-              <h3 className="font-bold text-[#112D4E]">Account Security</h3>
+            {/* Account Credentials & Authority Summary */}
+            <section className="rounded-3xl border border-[#DBE2EF]/80 bg-white p-6 shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck size={18} className="text-emerald-600" />
+                <h3 className="font-bold text-[#112D4E] text-sm">Account & Authority</h3>
+              </div>
               <p className="mt-1 text-xs text-gray-500">
-                Authority, permissions, and identity
+                Verified security status and identity tokens
               </p>
 
-              <div className="mt-4 space-y-3 text-xs">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
-                  <span className="text-gray-500">Role Authority</span>
-                  <span className="font-semibold uppercase text-[#112D4E]">
+              <div className="mt-5 space-y-3.5 text-xs">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <span className="text-gray-500">System Role</span>
+                  <span className="font-semibold uppercase tracking-wider text-[#112D4E]">
                     {profile?.role}
                   </span>
                 </div>
-                <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
-                  <span className="text-gray-500">Account Status</span>
-                  <span className="font-semibold text-emerald-600">
+
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <span className="text-gray-500">Account Standing</span>
+                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     {profile?.status || "ACTIVE"}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Account ID</span>
-                  <span className="font-mono text-gray-700">
-                    {profile?.id?.slice(0, 10)}...
-                  </span>
+
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <span className="text-gray-500">Session Security</span>
+                  <span className="font-medium text-gray-700">Encrypted (TLS 1.3)</span>
+                </div>
+
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <span className="text-gray-500">System Clearance</span>
+                  <span className="font-medium text-[#3F72AF]">{roleConfig.authorityLevel}</span>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-gray-500">Unique Identity</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-gray-700 text-[11px]">
+                      {profile?.id?.slice(0, 10)}...
+                    </span>
+                    <button
+                      type="button"
+                      onClick={copyIdToClipboard}
+                      className="text-gray-400 hover:text-[#3F72AF] cursor-pointer"
+                      title="Copy full ID"
+                    >
+                      {copiedId ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                    </button>
+                  </div>
                 </div>
               </div>
             </section>
+
+            {/* Quick Security Tips */}
+            <section className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/60 to-white p-6 shadow-xs">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#112D4E]">
+                <ShieldCheck size={16} className="text-[#3F72AF]" />
+                <span>Trustora Security Commitment</span>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-gray-600">
+                Trustora Bank uses industry-grade encryption, role-level proxies, and isolated transactional ledgers to safeguard your digital banking operations. Never share your credentials or PIN with anyone.
+              </p>
+            </section>
+
           </div>
         </div>
+
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { requireRole } from "@/server/auth";
+import { requireRoleRedirect } from "@/server/auth";
 import type { ReactNode } from "react";
 
 interface AdminLayoutProps {
@@ -6,7 +6,7 @@ interface AdminLayoutProps {
 }
 
 const AdminLayout = async ({ children }: AdminLayoutProps) => {
-  await requireRole("admin");
+  await requireRoleRedirect("admin");
 
   return children;
 };

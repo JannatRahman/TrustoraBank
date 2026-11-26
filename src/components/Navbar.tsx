@@ -12,15 +12,17 @@ import {
   Landmark,
 } from "lucide-react";
 import { useSession, authClient } from "@/lib/auth-client";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 
 const navLinks = [
   { name: "Home", href: "/", id: "home" },
-  { name: "Services", href: "/#services", id: "services" },
-  { name: "Loans", href: "/#loans", id: "loans" },
-  { name: "Security", href: "/#security", id: "security" },
-  { name: "About", href: "/#about", id: "about" },
-  { name: "Contact", href: "/#contact", id: "contact" },
+  { name: "Services", href: "/services", id: "services" },
+  { name: "Loans", href: "/loans", id: "loans" },
+  { name: "Security", href: "/security", id: "security" },
+  { name: "About", href: "/about", id: "about" },
+  { name: "Contact", href: "/contact", id: "contact" },
 ];
+
 
 const sectionIds = [
   "about",
@@ -193,9 +195,13 @@ function Navbar() {
   };
 
   // Active navigation link
-  const isActiveLink = (id: string) => {
-    return pathname === "/" && activeSection === id;
+  const isActiveLink = (href: string, id: string) => {
+    if (pathname === "/" && id === "home" && activeSection === "home") return true;
+    if (pathname === "/" && activeSection === id) return true;
+    if (pathname === href) return true;
+    return false;
   };
+
 
   return (
     <>
@@ -233,7 +239,7 @@ function Navbar() {
           {/* DESKTOP NAVIGATION */}
           <ul className="hidden items-center gap-2 xl:flex">
             {navLinks.map((link) => {
-              const isActive = isActiveLink(link.id);
+              const isActive = isActiveLink(link.href, link.id);
 
               return (
                 <li key={link.name}>
@@ -251,6 +257,7 @@ function Navbar() {
               );
             })}
           </ul>
+
 
           {/* DESKTOP AUTH ACTIONS */}
           <div className="hidden shrink-0 items-center gap-3 xl:flex">
@@ -306,6 +313,8 @@ function Navbar() {
                 </NextLink>
               </>
             )}
+
+            <ThemeToggle />
           </div>
 
           {/* MOBILE / TABLET MENU BUTTON */}
@@ -383,7 +392,7 @@ function Navbar() {
           {/* NAVIGATION LINKS */}
           <ul className="flex flex-col gap-1.5">
             {navLinks.map((link) => {
-              const isActive = isActiveLink(link.id);
+              const isActive = isActiveLink(link.href, link.id);
 
               return (
                 <li key={link.name}>
@@ -402,6 +411,7 @@ function Navbar() {
               );
             })}
           </ul>
+
 
           {/* AUTHENTICATION ACTIONS */}
           <div className="mt-8 border-t border-gray-100 pt-7">
@@ -471,10 +481,14 @@ function Navbar() {
         </div>
 
         {/* DRAWER FOOTER */}
-        <div className="border-t border-gray-100 px-6 py-5">
-          <p className="text-center text-xs text-gray-400">
+        <div className="border-t border-gray-100 px-6 py-5 flex items-center justify-between">
+          <p className="text-xs text-gray-400">
             © 2026 Trustora Bank
           </p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400 font-medium">Theme:</span>
+            <ThemeToggle />
+          </div>
         </div>
       </aside>
     </>

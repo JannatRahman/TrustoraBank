@@ -1,24 +1,22 @@
 
 import Navbar from "@/components/Navbar";
 import Banner from "@/components/Banner";
-import AboutUs from "@/components/AboutUs";
-import Services from "@/components/Services";
-import Loans from "@/components/Loans";
-import Security from "@/components/Security";
-import Footer from "@/components/Footer";
+import LandingSections from "@/components/LandingSections";
 import Contact from "@/components/Contact";
+import Footer from "@/components/Footer";
 
 export default function Home() {
   return (
     <>
       <Navbar />
+      {/* Hero Section preserved intact in Banner */}
       <Banner />
-      <AboutUs />
-      <Services />
-      <Loans />
-      <Security />
-      <Contact/>
+      {/* Redesigned Sections A-F below Hero */}
+      <LandingSections />
+      {/* Contact & Support Section */}
+      <Contact />
       <Footer />
     </>
   );
 }
+

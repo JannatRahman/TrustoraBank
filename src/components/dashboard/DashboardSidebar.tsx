@@ -24,6 +24,7 @@ import {
 import { LayoutSideContentLeft } from "@gravity-ui/icons";
 import { Button, Drawer } from "@heroui/react";
 import { authClient, useSession } from "@/lib/auth-client";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 
 // BANKING STAFF NAVIGATION
 const staffNavItems = [
@@ -249,6 +250,11 @@ export function StaffDashboardSidebar() {
         Sign Out
       </button>
 
+      <div className="mt-2 flex items-center justify-between rounded-xl px-3 py-2 text-xs text-[#DBE2EF]/80">
+        <span className="font-medium">Theme Mode</span>
+        <ThemeToggle />
+      </div>
+
       <div className="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
         {user?.image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -324,40 +330,43 @@ export function StaffDashboardSidebar() {
           </div>
         </div>
 
-        <Drawer>
-          <Button variant="secondary" isIconOnly={false}>
-            <LayoutSideContentLeft />
-            Menu
-          </Button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Drawer>
+            <Button variant="secondary" isIconOnly={false}>
+              <LayoutSideContentLeft />
+              Menu
+            </Button>
 
-          <Drawer.Backdrop>
-            <Drawer.Content placement="left">
-              <Drawer.Dialog className="bg-[#112D4E] text-[#F9F7F7]">
-                <Drawer.CloseTrigger />
+            <Drawer.Backdrop>
+              <Drawer.Content placement="left">
+                <Drawer.Dialog className="bg-[#112D4E] text-[#F9F7F7]">
+                  <Drawer.CloseTrigger />
 
-                <Drawer.Header className="border-b border-white/10">
-                  <Drawer.Heading>
-                    {sidebarHeader}
-                  </Drawer.Heading>
-                </Drawer.Header>
+                  <Drawer.Header className="border-b border-white/10">
+                    <Drawer.Heading>
+                      {sidebarHeader}
+                    </Drawer.Heading>
+                  </Drawer.Header>
 
-                <Drawer.Body className="px-4 py-6">
-                  <p className="mb-4 px-3 text-[10px] font-bold tracking-[2px] text-[#DBE2EF]/60">
-                    {workspaceLabel}
-                  </p>
+                  <Drawer.Body className="px-4 py-6">
+                    <p className="mb-4 px-3 text-[10px] font-bold tracking-[2px] text-[#DBE2EF]/60">
+                      {workspaceLabel}
+                    </p>
 
-                  {navContent}
+                    {navContent}
 
-                  {homepageLink}
-                </Drawer.Body>
+                    {homepageLink}
+                  </Drawer.Body>
 
-                <div className="mt-auto">
-                  {bottomContent}
-                </div>
-              </Drawer.Dialog>
-            </Drawer.Content>
-          </Drawer.Backdrop>
-        </Drawer>
+                  <div className="mt-auto">
+                    {bottomContent}
+                  </div>
+                </Drawer.Dialog>
+              </Drawer.Content>
+            </Drawer.Backdrop>
+          </Drawer>
+        </div>
       </div>
     </>
   );

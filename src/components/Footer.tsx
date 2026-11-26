@@ -24,16 +24,16 @@ const companyLinks = [
 const quickLinks = [
   { name: "Open an Account", href: "/register" },
   { name: "Customer Login", href: "/login" },
-  { name: "Interest Rates", href: "/rates" },
-  { name: "Help Center", href: "/help" },
+  { name: "Loan Options", href: "/loans" },
+  { name: "Contact & Help", href: "/contact" },
 ];
 
 const legalLinks = [
-  { name: "Privacy Policy", href: "/privacy-policy" },
-  { name: "Terms of Use", href: "/terms" },
-  { name: "Legal", href: "/legal" },
-  { name: "Site Map", href: "/sitemap" },
+  { name: "Security Policy", href: "/security" },
+  { name: "Terms of Service", href: "/about" },
+  { name: "Customer Support", href: "/contact" },
 ];
+
 
 const socialLinks = [
   {

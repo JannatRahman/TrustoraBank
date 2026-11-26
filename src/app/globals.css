@@ -1,71 +1,131 @@
-
 @import "tailwindcss";
 @import "@heroui/styles";
 
+/* Class-based dark variant in Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* -------------------------------------------------------------------------- */
-/* Global Cursor & Interactive Element Baseline                               */
+/* Theme Variables & Tokens                                                   */
+/* -------------------------------------------------------------------------- */
+:root {
+  --background: #f8fafd;
+  --foreground: #112d4e;
+  --card-bg: #ffffff;
+  --card-border: #dbe2ef;
+  --text-primary: #112d4e;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --input-bg: #ffffff;
+  --input-border: #e5e7eb;
+}
+
+html.dark {
+  --background: #091424;
+  --foreground: #f8fafc;
+  --card-bg: #112338;
+  --card-border: #1e3a5f;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --input-bg: #0f1f33;
+  --input-border: #233e66;
+  color-scheme: dark;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Dark Mode Comprehensive Banking Aesthetic                                  */
 /* -------------------------------------------------------------------------- */
 
-/* Buttons, clickable controls, and triggers */
-button,
-[role="button"],
-input[type="button"],
-input[type="submit"],
-input[type="reset"] {
-  cursor: pointer;
+html.dark body {
+  background-color: #091424;
+  color: #f1f5f9;
 }
 
-/* Links and anchors */
-a,
-[role="link"] {
-  cursor: pointer;
+/* Base page backgrounds */
+html.dark .bg-\[\#F9F7F7\],
+html.dark .bg-\[\#F8FAFD\],
+html.dark .bg-gray-50,
+html.dark .bg-slate-50,
+html.dark .bg-zinc-50 {
+  background-color: #0a1728 !important;
 }
 
-/* Form selection and toggle controls */
-select,
-input[type="checkbox"],
-input[type="radio"],
-input[type="file"],
-input[type="color"],
-label[for] {
-  cursor: pointer;
+/* White card surfaces in dark mode become deep banking navy */
+html.dark .bg-white {
+  background-color: #112338 !important;
 }
 
-/* Disabled controls & unavailable actions */
-button:disabled,
-input:disabled,
-select:disabled,
-textarea:disabled,
-[aria-disabled="true"],
-.disabled {
-  cursor: not-allowed !important;
+/* Slightly elevated surfaces / secondary containers */
+html.dark .bg-gray-100,
+html.dark .bg-slate-100,
+html.dark .bg-zinc-100 {
+  background-color: #162c46 !important;
 }
 
-/* Text inputs and editable areas */
-input[type="text"],
-input[type="password"],
-input[type="email"],
-input[type="number"],
-input[type="search"],
-input[type="tel"],
-input[type="url"],
-input[type="date"],
-input[type="datetime-local"],
-textarea {
-  cursor: text;
+/* Primary text headings & labels */
+html.dark .text-\[\#112D4E\],
+html.dark .text-gray-900,
+html.dark .text-slate-900 {
+  color: #f8fafc !important;
 }
 
-/* Interactive card & widget hover utilities */
-.clickable-card {
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+/* Secondary & muted body text */
+html.dark .text-\[\#6B7280\],
+html.dark .text-gray-600,
+html.dark .text-gray-500,
+html.dark .text-slate-600,
+html.dark .text-slate-500 {
+  color: #94a3b8 !important;
 }
 
-.clickable-card:hover {
-  transform: translateY(-1px);
+html.dark .text-gray-700,
+html.dark .text-slate-700 {
+  color: #cbd5e1 !important;
 }
 
-/* Standardized form input styling */
+html.dark .text-gray-400,
+html.dark .text-slate-400 {
+  color: #64748b !important;
+}
+
+/* Borders across cards, rows, dividers */
+html.dark .border-\[\#DBE2EF\],
+html.dark .border-gray-200,
+html.dark .border-gray-100,
+html.dark .border-slate-200,
+html.dark .border-slate-100 {
+  border-color: #1e3a5f !important;
+}
+
+/* Inputs, textareas, selects */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+html.dark textarea,
+html.dark select {
+  background-color: #0f1f33 !important;
+  color: #f8fafc !important;
+  border-color: #233e66 !important;
+}
+
+html.dark input:focus,
+html.dark textarea:focus,
+html.dark select:focus {
+  border-color: #3f72af !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+html.dark input:disabled,
+html.dark textarea:disabled,
+html.dark select:disabled {
+  background-color: #0c1827 !important;
+  color: #64748b !important;
+  border-color: #1a2f4c !important;
+}
+
+/* Standardized form-input utility */
 .form-input {
   width: 100%;
   border: 1px solid #e5e7eb;
@@ -75,7 +135,7 @@ textarea {
   color: #112d4e;
   background-color: white;
   outline: none;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
   cursor: text;
 }
 
@@ -92,3 +152,146 @@ textarea {
   background-color: #f3f4f6;
 }
 
+html.dark .form-input {
+  border-color: #233e66;
+  color: #f8fafc;
+  background-color: #0f1f33;
+}
+
+html.dark .form-input:focus {
+  border-color: #3f72af;
+}
+
+html.dark .form-input::placeholder {
+  color: #64748b;
+}
+
+html.dark .form-input:disabled {
+  background-color: #0c1827;
+  color: #64748b;
+}
+
+/* Tables in dark mode */
+html.dark table {
+  color: #f8fafc !important;
+}
+
+html.dark thead,
+html.dark th {
+  background-color: #0d1e33 !important;
+  color: #cbd5e1 !important;
+  border-color: #1e3a5f !important;
+}
+
+html.dark td {
+  border-color: #1e3a5f !important;
+}
+
+html.dark tbody tr:hover td {
+  background-color: #152b45 !important;
+}
+
+/* Soft badges and status chips in dark mode */
+html.dark .bg-blue-50 {
+  background-color: rgba(63, 114, 175, 0.15) !important;
+  color: #93c5fd !important;
+}
+
+html.dark .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #6ee7b7 !important;
+}
+
+html.dark .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #fcd34d !important;
+}
+
+html.dark .bg-purple-50 {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+  color: #d8b4fe !important;
+}
+
+html.dark .bg-rose-50,
+html.dark .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  color: #fca5a5 !important;
+}
+
+html.dark .bg-indigo-50 {
+  background-color: rgba(99, 102, 241, 0.15) !important;
+  color: #a5b4fc !important;
+}
+
+html.dark .bg-teal-50 {
+  background-color: rgba(20, 184, 166, 0.15) !important;
+  color: #5eead4 !important;
+}
+
+/* Mobile sidebar header in dark mode */
+html.dark .bg-\[\#F9F7F7\].sticky {
+  background-color: #0d1e33 !important;
+  border-color: #1e3a5f !important;
+}
+
+/* Chart bars and secondary elements in dark mode */
+html.dark .bg-\[\#DBE2EF\] {
+  background-color: #234975 !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Global Cursor & Interactive Element Baseline                               */
+/* -------------------------------------------------------------------------- */
+
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  cursor: pointer;
+}
+
+a,
+[role="link"] {
+  cursor: pointer;
+}
+
+select,
+input[type="checkbox"],
+input[type="radio"],
+input[type="file"],
+input[type="color"],
+label[for] {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+[aria-disabled="true"],
+.disabled {
+  cursor: not-allowed !important;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+input[type="date"],
+input[type="datetime-local"],
+textarea {
+  cursor: text;
+}
+
+.clickable-card {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.clickable-card:hover {
+  transform: translateY(-1px);
+}

@@ -115,10 +115,10 @@ export async function getServerSession(): Promise<ServerSession | null> {
   }
 }
 
-export const requireRole = async( role: string) => {
+export const requireRoleRedirect = async( role: string) => {
   const user = await getUserSession();
   if (!user || user.role !== role) {
-    return redirect("/Unauthorized");
+    return redirect("/unauthorized");
   }
 } 
 

@@ -1,4 +1,4 @@
-import { requireRole } from "@/server/auth";
+import { requireRoleRedirect } from "@/server/auth";
 import type { ReactNode } from "react";
 
 interface BankStaffLayoutProps {
@@ -6,7 +6,7 @@ interface BankStaffLayoutProps {
 }
 
 const BankStaffLayout = async ({ children }: BankStaffLayoutProps) => {
-  await requireRole("banking-staff");
+  await requireRoleRedirect("banking-staff");
 
   return children;
 };

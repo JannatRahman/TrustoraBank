@@ -1,12 +1,12 @@
-import { requireRole } from "@/server/auth";
+import { requireRoleRedirect } from "@/server/auth";
 import type { ReactNode } from "react";
 
-interface AdminLayoutProps {
+interface CustomerLayoutProps {
   children: ReactNode;
 }
 
-const CustomerLayout = async ({ children }: AdminLayoutProps) => {
-  await requireRole("customer");
+const CustomerLayout = async ({ children }: CustomerLayoutProps) => {
+  await requireRoleRedirect("customer");
 
   return children;
 };
